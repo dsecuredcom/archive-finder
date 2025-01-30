@@ -18,7 +18,7 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	const chunkSize = 5000
+	const chunkSize = 750
 	hosts := make([]string, 0, chunkSize)
 
 	for scanner.Scan() {
