@@ -12,10 +12,46 @@ import (
 )
 
 func ProcessHostsFile(config *Config, client *http.Client) error {
+	// 1) Read entire file and collect lines (hosts).
+	file, err := os.Open(config.HostsFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var hosts []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		host := strings.TrimSpace(scanner.Text())
+		if host != "" {
+			hosts = append(hosts, host)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	// 2) From these hosts, generate all possible archive URLs.
+	var allArchives []string
+	for _, host := range hosts {
+		archives := GenerateArchivePaths(host, config.DisableDynamicEntries)
+		allArchives = append(allArchives, archives...)
+	}
+
+	totalJobs := int64(len(allArchives))
+	if totalJobs == 0 {
+		fmt.Println("No archives to check.")
+		return nil
+	}
+
+	// 3) We'll process everything with concurrency.
+	//    Create a channel to feed archive URLs.
 	jobs := make(chan string, config.Concurrency*2)
+
 	var wg sync.WaitGroup
 	var processed int64
 
+	// 4) Launch worker goroutines.
 	for i := 0; i < config.Concurrency; i++ {
 		wg.Add(1)
 		go func() {
@@ -27,96 +63,38 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 		}()
 	}
 
+	// 5) Launch a goroutine to display the progress bar on a single line.
 	done := make(chan struct{})
 	go func() {
-		t := time.NewTicker(1 * time.Second)
-		defer t.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-t.C:
-				fmt.Printf("Processed: %d | In queue: %d\n", atomic.LoadInt64(&processed), len(jobs))
-			}
-		}
-	}()
-
-	file, err := os.Open(config.HostsFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		host := strings.TrimSpace(scanner.Text())
-		if host == "" {
-			continue
-		}
-		archives := GenerateArchivePaths(host, config.DisableDynamicEntries)
-		for _, a := range archives {
-			jobs <- a
-		}
-	}
-
-	close(jobs)
-	wg.Wait()
-	close(done)
-	return scanner.Err()
-}
-
-func processHostsChunk(hosts []string, config *Config, client *http.Client) error {
-	var totalInChunk int64
-
-	// Calculate the total number of archive checks in this chunk
-	for _, host := range hosts {
-		archives := GenerateArchivePaths(host, config.DisableDynamicEntries)
-		totalInChunk += int64(len(archives))
-	}
-	if totalInChunk == 0 {
-		return nil
-	}
-
-	fmt.Printf("Processing chunk with %d archive checks...\n", totalInChunk)
-
-	sem := make(chan struct{}, config.Concurrency)
-	var wg sync.WaitGroup
-	wg.Add(int(totalInChunk))
-
-	var completed int64
-
-	done := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(500 * time.Millisecond)
+		ticker := time.NewTicker(200 * time.Millisecond)
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-done:
 				return
 			case <-ticker.C:
-				c := atomic.LoadInt64(&completed)
-				percent := float64(c) / float64(totalInChunk) * 100
-				fmt.Printf("\rProgress: %d/%d (%.1f%%)", c, totalInChunk, percent)
+				current := atomic.LoadInt64(&processed)
+				percent := float64(current) / float64(totalJobs) * 100
+				// \r returns the cursor to the start of the line
+				// so we overwrite the same line each time.
+				fmt.Printf("\rProgress: %d/%d (%.1f%%)", current, totalJobs, percent)
 			}
 		}
 	}()
 
-	for _, host := range hosts {
-		archives := GenerateArchivePaths(host, config.DisableDynamicEntries)
-		for _, archiveURL := range archives {
-			sem <- struct{}{}
-			go func(url string) {
-				defer wg.Done()
-				defer func() { <-sem }()
-				CheckArchive(url, client, config.Verbose)
-				atomic.AddInt64(&completed, 1)
-			}(archiveURL)
-		}
+	// 6) Feed the jobs channel.
+	for _, archiveURL := range allArchives {
+		jobs <- archiveURL
 	}
 
+	// 7) Close the jobs channel and wait for all workers.
+	close(jobs)
 	wg.Wait()
-	close(done)
 
-	fmt.Printf("\rProgress: %d/%d (100.0%%)\n", totalInChunk, totalInChunk)
+	// 8) Stop the progress ticker, print a final newline.
+	close(done)
+	fmt.Printf("\rProgress: %d/%d (100.0%%)\n", totalJobs, totalJobs)
+
 	return nil
 }
