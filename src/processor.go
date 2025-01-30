@@ -1,3 +1,4 @@
+// processor.go
 package src
 
 import (
@@ -22,52 +23,41 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 
 	scanner := bufio.NewScanner(file)
 
-	// concurrency-limiting channel + a single WaitGroup
-	sem := make(chan struct{}, config.Concurrency)
-	var wg sync.WaitGroup
-
-	var lineCount int64
-
+	var chunk []string
 	for scanner.Scan() {
-		host := strings.TrimSpace(scanner.Text())
-		if host == "" {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
 			continue
 		}
+		chunk = append(chunk, line)
 
-		archives := GenerateArchivePaths(host, config.DisableDynamicEntries)
-		for _, archiveURL := range archives {
-			wg.Add(1)
-			sem <- struct{}{}
-
-			go func(url string) {
-				defer wg.Done()
-				defer func() { <-sem }()
-				CheckArchive(url, client, config.Verbose)
-			}(archiveURL)
-		}
-		atomic.AddInt64(&lineCount, 1)
-		if lineCount%100 == 0 {
-			fmt.Printf("Processed %d lines...\n", lineCount)
+		if len(chunk) >= config.ChunkSize {
+			if err := processHostsChunk(chunk, config, client); err != nil {
+				return err
+			}
+			// Reset chunk.
+			chunk = nil
 		}
 	}
-
-	wg.Wait() // wait for all requests to finish
+	// If there's any leftover chunk, process it.
+	if len(chunk) > 0 {
+		if err := processHostsChunk(chunk, config, client); err != nil {
+			return err
+		}
+	}
 
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func processHostsChunk(hosts []string, config *Config, client *http.Client) error {
 	fmt.Printf("\nProcessing chunk of %d hosts...\n", len(hosts))
 
-	// We'll track total # of archives as we go if needed
 	var totalCount int64
-
-	// Concurrency-limiting semaphore
 	sem := make(chan struct{}, config.Concurrency)
-	// WaitGroup for the entire chunk
 	var wg sync.WaitGroup
 
 	// Set up the progress ticker
@@ -87,9 +77,13 @@ func processHostsChunk(hosts []string, config *Config, client *http.Client) erro
 		}
 	}()
 
+	// Process each host
 	for _, host := range hosts {
-		archives := GenerateArchivePaths(host, config.DisableDynamicEntries)
-		for _, archiveURL := range archives {
+		// Get a channel of archive paths instead of a slice
+		archiveChan := GenerateArchivePaths(host, config.DisableDynamicEntries)
+
+		// Process archives as they come in
+		for archiveURL := range archiveChan {
 			wg.Add(1)
 			sem <- struct{}{} // Acquire a "slot"
 
@@ -103,7 +97,6 @@ func processHostsChunk(hosts []string, config *Config, client *http.Client) erro
 		}
 	}
 
-	// Wait for all goroutines in this chunk
 	wg.Wait()
 	close(done)
 	fmt.Printf("\rProcessed: %d\n", atomic.LoadInt64(&totalCount))

@@ -46,50 +46,48 @@ var (
 	}
 )
 
-// GenerateArchivePaths creates all possible archive URLs based on
-// predefined basePaths, dynamic domain parts, and date-based naming.
-func GenerateArchivePaths(host string, disableDynamicEntries bool) []string {
-	var archives []string
-	baseURL := normalizeHost(host)
-	if baseURL == "" {
-		fmt.Printf("Failed to normalize host: %s\n", host)
-		return archives
-	}
+func GenerateArchivePaths(host string, disableDynamicEntries bool) <-chan string {
+	archiveChan := make(chan string, 100) // Buffered channel for some throughput
 
-	// Generate from basePaths + extensions
-	for _, basePath := range basePaths {
-		for _, ext := range extensions {
-			archive := fmt.Sprintf("%s.%s", basePath, ext)
-			archive = strings.TrimPrefix(archive, "/")
-			fullURL := baseURL + "/" + archive
-			archives = append(archives, fullURL)
+	go func() {
+		defer close(archiveChan)
+
+		baseURL := normalizeHost(host)
+		if baseURL == "" {
+			return
 		}
-	}
 
-	// Generate dynamic entries from subdomain parts
-	if !disableDynamicEntries {
-		parts := generateDomainParts(baseURL)
-		for _, part := range parts {
+		// Generate from basePaths + extensions
+		for _, basePath := range basePaths {
 			for _, ext := range extensions {
-				archive := fmt.Sprintf("%s.%s", part, ext)
-				archive = strings.TrimPrefix(archive, "/")
-				fullURL := baseURL + "/" + archive
-				archives = append(archives, fullURL)
+				archive := fmt.Sprintf("%s/%s.%s", baseURL, basePath, ext)
+				archiveChan <- archive
 			}
 		}
-	}
 
-	// Date-based entries
-	now := time.Now()
-	currentYear := now.Year()
-	todayStr := now.Format("2006-01-02")
+		// Generate dynamic entries from subdomain parts
+		if !disableDynamicEntries {
+			parts := generateDomainParts(baseURL)
+			for _, part := range parts {
+				for _, ext := range extensions {
+					archive := fmt.Sprintf("%s/%s.%s", baseURL, part, ext)
+					archiveChan <- archive
+				}
+			}
+		}
 
-	for _, ext := range extensions {
-		archives = append(archives, fmt.Sprintf("%s/backup%d.%s", baseURL, currentYear, ext))
-		archives = append(archives, fmt.Sprintf("%s/backup-%s.%s", baseURL, todayStr, ext))
-	}
+		// Date-based entries
+		now := time.Now()
+		currentYear := now.Year()
+		todayStr := now.Format("2006-01-02")
 
-	return archives
+		for _, ext := range extensions {
+			archiveChan <- fmt.Sprintf("%s/backup%d.%s", baseURL, currentYear, ext)
+			archiveChan <- fmt.Sprintf("%s/backup-%s.%s", baseURL, todayStr, ext)
+		}
+	}()
+
+	return archiveChan
 }
 
 // CheckArchive performs the HTTP request and checks if the response looks like a valid archive.
