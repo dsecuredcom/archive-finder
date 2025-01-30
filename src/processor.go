@@ -5,39 +5,63 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 func ProcessHostsFile(config *Config, client *http.Client) error {
+	jobs := make(chan string, config.Concurrency*2)
+	var wg sync.WaitGroup
+	var processed int64
+
+	for i := 0; i < config.Concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for archiveURL := range jobs {
+				CheckArchive(archiveURL, client, config.Verbose)
+				atomic.AddInt64(&processed, 1)
+			}
+		}()
+	}
+
+	done := make(chan struct{})
+	go func() {
+		t := time.NewTicker(1 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-t.C:
+				fmt.Printf("Processed: %d | In queue: %d\n", atomic.LoadInt64(&processed), len(jobs))
+			}
+		}
+	}()
+
 	file, err := os.Open(config.HostsFile)
 	if err != nil {
-		return fmt.Errorf("failed to open hosts file: %w", err)
+		return err
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	const chunkSize = 750
-	hosts := make([]string, 0, chunkSize)
-
 	for scanner.Scan() {
-		hosts = append(hosts, scanner.Text())
-		if len(hosts) >= chunkSize {
-			if err := processHostsChunk(hosts, config, client); err != nil {
-				return err
-			}
-			hosts = hosts[:0]
+		host := strings.TrimSpace(scanner.Text())
+		if host == "" {
+			continue
+		}
+		archives := GenerateArchivePaths(host, config.DisableDynamicEntries)
+		for _, a := range archives {
+			jobs <- a
 		}
 	}
 
-	// Handle leftover chunk if any
-	if len(hosts) > 0 {
-		if err := processHostsChunk(hosts, config, client); err != nil {
-			return err
-		}
-	}
-
+	close(jobs)
+	wg.Wait()
+	close(done)
 	return scanner.Err()
 }
 
