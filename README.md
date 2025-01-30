@@ -33,8 +33,8 @@ myproject/
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/yourusername/myproject.git
-   cd myproject
+   git clone https://github.com/dsecuredcom/archive-finder
+   cd archive-finder
    ```
 
 2. Initialize or update the Go modules (if needed):
