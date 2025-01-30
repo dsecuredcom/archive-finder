@@ -22,33 +22,40 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 
 	scanner := bufio.NewScanner(file)
 
-	var chunk []string
+	// concurrency-limiting channel + a single WaitGroup
+	sem := make(chan struct{}, config.Concurrency)
+	var wg sync.WaitGroup
+
+	var lineCount int64
+
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		host := strings.TrimSpace(scanner.Text())
+		if host == "" {
 			continue
 		}
-		chunk = append(chunk, line)
 
-		if len(chunk) >= config.ChunkSize {
-			if err := processHostsChunk(chunk, config, client); err != nil {
-				return err
-			}
-			// Reset chunk.
-			chunk = nil
+		archives := GenerateArchivePaths(host, config.DisableDynamicEntries)
+		for _, archiveURL := range archives {
+			wg.Add(1)
+			sem <- struct{}{}
+
+			go func(url string) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				CheckArchive(url, client, config.Verbose)
+			}(archiveURL)
+		}
+		atomic.AddInt64(&lineCount, 1)
+		if lineCount%100 == 0 {
+			fmt.Printf("Processed %d lines...\n", lineCount)
 		}
 	}
-	// If there's any leftover chunk, process it.
-	if len(chunk) > 0 {
-		if err := processHostsChunk(chunk, config, client); err != nil {
-			return err
-		}
-	}
+
+	wg.Wait() // wait for all requests to finish
 
 	if err := scanner.Err(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
