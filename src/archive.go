@@ -123,17 +123,17 @@ func CheckArchive(archiveURL string, client *http.Client, verbose bool) {
 	if resp.StatusCode == http.StatusOK {
 		if verifyFromResponse(resp, archiveURL) {
 			fmt.Fprintf(
-				// Print on its own line to avoid overwriting the progress display
-				// (especially if you run them concurrently).
-				// You can also replace with log.Println if you prefer.
-				// or consider some concurrency-safe logging strategy.
-				// For now we just print to stdout:
-				//
-				// There's a small glitch with the ChatGPT formatting, let's fix it:
 				os.Stdout,
 				"Found archive: %s\n",
 				archiveURL,
 			)
+		}
+	}
+
+	_, err = io.Copy(io.Discard, resp.Body)
+	if err != nil {
+		if verbose {
+			fmt.Printf("[ERROR] Failed to fully read response body for %s: %v\n", archiveURL, err)
 		}
 	}
 }

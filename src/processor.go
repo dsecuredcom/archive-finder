@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-// ProcessHostsFile processes the file in CHUNKS of hosts.
-// Each chunk is processed with its own single-line progress bar.
 func ProcessHostsFile(config *Config, client *http.Client) error {
 	file, err := os.Open(config.HostsFile)
 	if err != nil {
@@ -22,8 +21,8 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	chunk := make([]string, 0, config.ChunkSize)
 
-	var chunk []string
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -35,22 +34,21 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 			if err := processHostsChunk(chunk, config, client); err != nil {
 				return err
 			}
-			// Reset chunk.
-			chunk = nil
+			// Explicitly clear the chunk slice
+			chunk = make([]string, 0, config.ChunkSize)
+			// Force garbage collection after each chunk
+			runtime.GC()
 		}
 	}
-	// If there's any leftover chunk, process it.
+
+	// Process remaining hosts
 	if len(chunk) > 0 {
 		if err := processHostsChunk(chunk, config, client); err != nil {
 			return err
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
+	return scanner.Err()
 }
 
 func processHostsChunk(hosts []string, config *Config, client *http.Client) error {
