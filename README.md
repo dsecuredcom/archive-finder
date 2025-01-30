@@ -66,6 +66,9 @@ myproject/
 - `-concurrency int`  
   Maximum number of concurrent requests (default 2500).
 
+- `-chunksize int`  
+  Maximum number of hosts per batch (default 500).
+
 - `-disable-dynamic-entries`  
   Disable generation of archive entries based on host's domain parts (default false).
 

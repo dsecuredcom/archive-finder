@@ -133,7 +133,7 @@ func CheckArchive(archiveURL string, client *http.Client, verbose bool) {
 				//
 				// There's a small glitch with the ChatGPT formatting, let's fix it:
 				os.Stdout,
-				"\nFound archive: %s\n",
+				"Found archive: %s\n",
 				archiveURL,
 			)
 		}
