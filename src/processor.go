@@ -3,14 +3,11 @@ package src
 
 import (
 	"bufio"
-	"fmt"
 	"net/http"
 	"os"
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
-	"time"
 )
 
 func ProcessHostsFile(config *Config, client *http.Client) error {
@@ -52,52 +49,28 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 }
 
 func processHostsChunk(hosts []string, config *Config, client *http.Client) error {
-	fmt.Printf("\nProcessing chunk of %d hosts...\n", len(hosts))
-
-	var totalCount int64
-	sem := make(chan struct{}, config.Concurrency)
 	var wg sync.WaitGroup
+	sem := make(chan struct{}, config.Concurrency)
 
-	// Set up the progress ticker
-	done := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(300 * time.Millisecond)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				c := atomic.LoadInt64(&totalCount)
-				fmt.Printf("\rProcessed: %d", c)
-			}
-		}
-	}()
-
-	// Process each host
 	for _, host := range hosts {
-		// Get a channel of archive paths instead of a slice
 		archiveChan := GenerateArchivePaths(host, config.DisableDynamicEntries)
 
-		// Process archives as they come in
-		for archiveURL := range archiveChan {
-			wg.Add(1)
-			sem <- struct{}{} // Acquire a "slot"
-
-			go func(url string) {
-				defer wg.Done()
-				defer func() { <-sem }() // Release slot
-
-				CheckArchive(url, client, config.Verbose)
-				atomic.AddInt64(&totalCount, 1)
-			}(archiveURL)
-		}
+		// Create a separate goroutine to handle each archive channel
+		wg.Add(1)
+		go func(ch <-chan string) {
+			defer wg.Done()
+			for archiveURL := range ch { // This ensures the channel is fully drained
+				sem <- struct{}{}
+				wg.Add(1)
+				go func(url string) {
+					defer wg.Done()
+					defer func() { <-sem }()
+					CheckArchive(url, client, config.Verbose)
+				}(archiveURL)
+			}
+		}(archiveChan)
 	}
 
 	wg.Wait()
-	close(done)
-	fmt.Printf("\rProcessed: %d\n", atomic.LoadInt64(&totalCount))
-
 	return nil
 }
