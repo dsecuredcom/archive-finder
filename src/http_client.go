@@ -18,5 +18,8 @@ func NewHTTPClient(config *Config) *http.Client {
 	return &http.Client{
 		Timeout:   config.Timeout,
 		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse // Prevents following redirects
+		},
 	}
 }
