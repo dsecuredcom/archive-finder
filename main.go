@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"sync/atomic"
 	"time"
@@ -10,6 +9,9 @@ import (
 )
 
 func main() {
+
+	src.PrintWithTime("Starting archive-finder...")
+
 	config := src.ParseFlags()
 
 	client := src.NewHTTPClient(config)
@@ -25,7 +27,7 @@ func main() {
 				return
 			case <-ticker.C:
 				done := atomic.LoadInt64(&config.CompletedRequests)
-				fmt.Printf("\rRequests completed: %d", done)
+				src.PrintProgressLine("Requests completed: %d", done)
 			}
 		}
 	}()
@@ -35,10 +37,10 @@ func main() {
 	close(stopProgress)
 
 	done := atomic.LoadInt64(&config.CompletedRequests)
-	fmt.Printf("\nAll done! Total requests: %d\n", done)
+	src.PrintWithTime("All done! Total requests: %d", done)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error processing hosts file: %v\n", err)
+		src.PrintError("Error processing hosts file: %v", err)
 		os.Exit(1)
 	}
 }

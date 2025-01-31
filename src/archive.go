@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -98,7 +97,7 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 
 	if err != nil {
 		if verbose {
-			fmt.Printf("[ERROR] Request failed for %s: %v\n", archiveURL, err)
+			PrintError("Request failed for %s: %v", archiveURL, err)
 		}
 		atomic.AddInt64(&config.CompletedRequests, 1)
 		return
@@ -108,27 +107,18 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 	duration := time.Since(startTime)
 	if verbose {
 		sizeStr := "unknown"
-		statusCode := fmt.Sprintf("%d", resp.StatusCode)
+
 		if resp.ContentLength >= 0 {
 			sizeStr = fmt.Sprintf("%d", resp.ContentLength)
 		}
-		fmt.Printf("[VERBOSE] start=%s url=%s took=%v status=%s size=%s\n",
-			startTime.Format(time.RFC3339),
-			archiveURL,
-			duration,
-			statusCode,
-			sizeStr,
-		)
+
+		PrintVerbose("url=%s took=%v status=%d size=%s", archiveURL, duration, resp.StatusCode, sizeStr)
 	}
 
 	// Only proceed if status == 200
 	if resp.StatusCode == http.StatusOK {
 		if verifyFromResponse(resp, archiveURL) {
-			fmt.Fprintf(
-				os.Stdout,
-				"\nFound archive: %s\n",
-				archiveURL,
-			)
+			PrintFound(archiveURL)
 		}
 	}
 
@@ -136,7 +126,7 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 
 	if err != nil {
 		if verbose {
-			fmt.Printf("[ERROR] Failed to fully read response body for %s: %v\n", archiveURL, err)
+			PrintError("Failed to fully read response body for %s: %v", archiveURL, err)
 		}
 	}
 
