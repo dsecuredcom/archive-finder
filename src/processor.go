@@ -18,7 +18,6 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 	}
 	defer file.Close()
 
-	// 1. Read all lines into a slice
 	var lines []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -27,17 +26,27 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 			lines = append(lines, line)
 		}
 	}
-	// Return any scanning error
+
 	if err := scanner.Err(); err != nil {
 		return err
 	}
 
-	// 2. Shuffle the slice
 	rand.Shuffle(len(lines), func(i, j int) {
 		lines[i], lines[j] = lines[j], lines[i]
 	})
 
-	// 3. Chunk and process
+	numBasePaths := len(basePaths)
+	numExtensions := len(extensions)
+
+	knownPerHost := numBasePaths*numExtensions + 2*numExtensions
+	estimated := knownPerHost * len(lines)
+
+	if config.DisableDynamicEntries {
+		PrintWithTime("At least %d requests (no dynamic subdomain entries)\n", estimated)
+	} else {
+		PrintWithTime("At least %d requests + dynamically generated entries (subdomains, dash-splits, etc.)\n", estimated)
+	}
+
 	var chunk []string
 	chunkSize := config.ChunkSize
 	chunk = make([]string, 0, chunkSize)
@@ -54,7 +63,6 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 		}
 	}
 
-	// Process any leftover hosts
 	if len(chunk) > 0 {
 		if err := processHostsChunk(chunk, config, client); err != nil {
 			return err
