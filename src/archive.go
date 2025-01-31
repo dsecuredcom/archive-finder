@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -91,7 +92,7 @@ func GenerateArchivePaths(host string, disableDynamicEntries bool) <-chan string
 }
 
 // CheckArchive performs the HTTP request and checks if the response looks like a valid archive.
-func CheckArchive(archiveURL string, client *http.Client, verbose bool) {
+func CheckArchive(archiveURL string, client *http.Client, config *Config, verbose bool) {
 	startTime := time.Now()
 	resp, err := client.Get(archiveURL)
 
@@ -99,6 +100,7 @@ func CheckArchive(archiveURL string, client *http.Client, verbose bool) {
 		if verbose {
 			fmt.Printf("[ERROR] Request failed for %s: %v\n", archiveURL, err)
 		}
+		atomic.AddInt64(&config.CompletedRequests, 1)
 		return
 	}
 	defer resp.Body.Close()
@@ -124,18 +126,21 @@ func CheckArchive(archiveURL string, client *http.Client, verbose bool) {
 		if verifyFromResponse(resp, archiveURL) {
 			fmt.Fprintf(
 				os.Stdout,
-				"Found archive: %s\n",
+				"\nFound archive: %s\n",
 				archiveURL,
 			)
 		}
 	}
 
 	_, err = io.Copy(io.Discard, resp.Body)
+
 	if err != nil {
 		if verbose {
 			fmt.Printf("[ERROR] Failed to fully read response body for %s: %v\n", archiveURL, err)
 		}
 	}
+
+	atomic.AddInt64(&config.CompletedRequests, 1)
 }
 
 // verifyFromResponse checks the first few bytes to confirm if the file is a valid archive.

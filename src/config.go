@@ -14,6 +14,7 @@ type Config struct {
 	ChunkSize             int
 	DisableDynamicEntries bool
 	Verbose               bool
+	CompletedRequests     int64
 }
 
 func ParseFlags() *Config {

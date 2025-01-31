@@ -65,7 +65,7 @@ func processHostsChunk(hosts []string, config *Config, client *http.Client) erro
 				go func(url string) {
 					defer wg.Done()
 					defer func() { <-sem }()
-					CheckArchive(url, client, config.Verbose)
+					CheckArchive(url, client, config, config.Verbose)
 				}(archiveURL)
 			}
 		}(archiveChan)
