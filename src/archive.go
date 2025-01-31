@@ -36,7 +36,7 @@ var (
 func GenerateArchivePaths(host string, config *Config) <-chan string {
 	archiveChan := make(chan string, 100) // Buffered channel for some throughput
 
-	basePaths, extensions := GetBasePathsAndExtensions(config.Intensity)
+	basePaths, extensions := GetBasePathsAndExtensions(config)
 
 	go func() {
 		defer close(archiveChan)

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -19,9 +20,13 @@ type Config struct {
 	FoundHosts            map[string]bool
 	FoundHostsMu          sync.Mutex
 	Intensity             string
+	UserBaseWords         []string
+	UserExtensions        []string
 }
 
 func ParseFlags() *Config {
+	var wordList string
+	var extensionList string
 	config := &Config{}
 	flag.StringVar(&config.HostsFile, "hosts", "", "Path to hosts list file")
 	flag.DurationVar(&config.Timeout, "timeout", 60*time.Second, "Timeout for HTTP requests")
@@ -30,6 +35,9 @@ func ParseFlags() *Config {
 	flag.BoolVar(&config.DisableDynamicEntries, "disable-dynamic-entries", false, "Disable generation of entries based on host")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose output")
 	flag.StringVar(&config.Intensity, "intensity", "medium", "Choose scanning intensity: small, medium, or big")
+	flag.StringVar(&wordList, "words", "", "Comma-separated list of words (overwrites intensity-based words)")
+	flag.StringVar(&extensionList, "extensions", "", "Comma-separated list of extensions (overwrites intensity-based extensions)")
+
 	flag.Parse()
 
 	if config.HostsFile == "" {
@@ -37,6 +45,16 @@ func ParseFlags() *Config {
 		flag.Usage()
 		os.Exit(1)
 	}
+
+	if wordList != "" {
+		config.UserBaseWords = strings.Split(wordList, ",")
+	}
+
+	if extensionList != "" {
+		config.UserExtensions = strings.Split(extensionList, ",")
+	}
+
 	config.FoundHosts = make(map[string]bool)
+
 	return config
 }

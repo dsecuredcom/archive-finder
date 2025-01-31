@@ -72,8 +72,14 @@ myproject/
 - `-disable-dynamic-entries`  
   Disable generation of archive entries based on host's domain parts (default false).
 
-- `-intensity`  
+- `-intensity`
   small, medium, big (see code) (default medium).
+
+- `-words`
+  Comma-separated list of words (overwrites intensity-based words)
+
+- `-extensions`
+  Comma-separated list of extensions (overwrites intensity-based extensions)
 
 - `-verbose`  
   Enable verbose output (default false).

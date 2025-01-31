@@ -35,7 +35,7 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 		lines[i], lines[j] = lines[j], lines[i]
 	})
 
-	basePaths, extensions := GetBasePathsAndExtensions(config.Intensity)
+	basePaths, extensions := GetBasePathsAndExtensions(config)
 
 	numBasePaths := len(basePaths)
 	numExtensions := len(extensions)
