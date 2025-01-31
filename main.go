@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+	"log"
 	"math/rand"
 	"os"
 	"sync/atomic"
@@ -10,7 +12,7 @@ import (
 )
 
 func main() {
-
+	log.SetOutput(io.Discard)
 	rand.Seed(time.Now().UnixNano())
 
 	src.PrintWithTime("Starting archive-finder...")
