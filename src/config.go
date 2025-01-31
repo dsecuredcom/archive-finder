@@ -18,6 +18,7 @@ type Config struct {
 	CompletedRequests     int64
 	FoundHosts            map[string]bool
 	FoundHostsMu          sync.Mutex
+	Intensity             string
 }
 
 func ParseFlags() *Config {
@@ -28,6 +29,7 @@ func ParseFlags() *Config {
 	flag.IntVar(&config.ChunkSize, "chunksize", 500, "Chunksize for internal processing")
 	flag.BoolVar(&config.DisableDynamicEntries, "disable-dynamic-entries", false, "Disable generation of entries based on host")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose output")
+	flag.StringVar(&config.Intensity, "intensity", "medium", "Choose scanning intensity: small, medium, or big")
 	flag.Parse()
 
 	if config.HostsFile == "" {

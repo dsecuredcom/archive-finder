@@ -35,9 +35,11 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 		lines[i], lines[j] = lines[j], lines[i]
 	})
 
+	basePaths, extensions := GetBasePathsAndExtensions(config.Intensity)
+
 	numBasePaths := len(basePaths)
 	numExtensions := len(extensions)
-
+	// basePaths * extensions + 2 date-based * extensions
 	knownPerHost := numBasePaths*numExtensions + 2*numExtensions
 	estimated := knownPerHost * len(lines)
 
@@ -77,7 +79,7 @@ func processHostsChunk(hosts []string, config *Config, client *http.Client) erro
 	sem := make(chan struct{}, config.Concurrency)
 
 	for _, host := range hosts {
-		archiveChan := GenerateArchivePaths(host, config.DisableDynamicEntries)
+		archiveChan := GenerateArchivePaths(host, config)
 
 		// Create a separate goroutine to handle each archive channel
 		wg.Add(1)

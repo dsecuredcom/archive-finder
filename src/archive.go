@@ -46,8 +46,10 @@ var (
 	}
 )
 
-func GenerateArchivePaths(host string, disableDynamicEntries bool) <-chan string {
+func GenerateArchivePaths(host string, config *Config) <-chan string {
 	archiveChan := make(chan string, 100) // Buffered channel for some throughput
+
+	basePaths, extensions := GetBasePathsAndExtensions(config.Intensity)
 
 	go func() {
 		defer close(archiveChan)
@@ -66,7 +68,7 @@ func GenerateArchivePaths(host string, disableDynamicEntries bool) <-chan string
 		}
 
 		// Generate dynamic entries from subdomain parts
-		if !disableDynamicEntries {
+		if !config.DisableDynamicEntries {
 			parts := generateDomainParts(baseURL)
 			for _, part := range parts {
 				for _, ext := range extensions {
