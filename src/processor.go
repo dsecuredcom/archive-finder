@@ -3,6 +3,7 @@ package src
 
 import (
 	"bufio"
+	"math/rand"
 	"net/http"
 	"os"
 	"runtime"
@@ -17,35 +18,50 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 	}
 	defer file.Close()
 
+	// 1. Read all lines into a slice
+	var lines []string
 	scanner := bufio.NewScanner(file)
-	chunk := make([]string, 0, config.ChunkSize)
-
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
+		if line != "" {
+			lines = append(lines, line)
 		}
-		chunk = append(chunk, line)
+	}
+	// Return any scanning error
+	if err := scanner.Err(); err != nil {
+		return err
+	}
 
-		if len(chunk) >= config.ChunkSize {
+	// 2. Shuffle the slice
+	rand.Shuffle(len(lines), func(i, j int) {
+		lines[i], lines[j] = lines[j], lines[i]
+	})
+
+	// 3. Chunk and process
+	var chunk []string
+	chunkSize := config.ChunkSize
+	chunk = make([]string, 0, chunkSize)
+
+	for _, host := range lines {
+		chunk = append(chunk, host)
+		if len(chunk) >= chunkSize {
 			if err := processHostsChunk(chunk, config, client); err != nil {
 				return err
 			}
-			// Explicitly clear the chunk slice
-			chunk = make([]string, 0, config.ChunkSize)
-			// Force garbage collection after each chunk
+			chunk = make([]string, 0, chunkSize)
+			// Force garbage collection after each chunk if desired
 			runtime.GC()
 		}
 	}
 
-	// Process remaining hosts
+	// Process any leftover hosts
 	if len(chunk) > 0 {
 		if err := processHostsChunk(chunk, config, client); err != nil {
 			return err
 		}
 	}
 
-	return scanner.Err()
+	return nil
 }
 
 func processHostsChunk(hosts []string, config *Config, client *http.Client) error {
