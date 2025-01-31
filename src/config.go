@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -15,6 +16,8 @@ type Config struct {
 	DisableDynamicEntries bool
 	Verbose               bool
 	CompletedRequests     int64
+	FoundHosts            map[string]bool
+	FoundHostsMu          sync.Mutex
 }
 
 func ParseFlags() *Config {
@@ -32,6 +35,6 @@ func ParseFlags() *Config {
 		flag.Usage()
 		os.Exit(1)
 	}
-
+	config.FoundHosts = make(map[string]bool)
 	return config
 }

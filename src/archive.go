@@ -92,6 +92,24 @@ func GenerateArchivePaths(host string, disableDynamicEntries bool) <-chan string
 
 // CheckArchive performs the HTTP request and checks if the response looks like a valid archive.
 func CheckArchive(archiveURL string, client *http.Client, config *Config, verbose bool) {
+
+	u, err := url.Parse(archiveURL)
+	if err != nil {
+		// If we can’t parse the URL, just skip
+		atomic.AddInt64(&config.CompletedRequests, 1)
+		return
+	}
+	host := u.Host
+
+	config.FoundHostsMu.Lock()
+	if config.FoundHosts[host] {
+		// Already found => skip
+		config.FoundHostsMu.Unlock()
+		atomic.AddInt64(&config.CompletedRequests, 1)
+		return
+	}
+	config.FoundHostsMu.Unlock()
+
 	startTime := time.Now()
 	resp, err := client.Get(archiveURL)
 
@@ -118,6 +136,9 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 	// Only proceed if status == 200
 	if resp.StatusCode == http.StatusOK {
 		if verifyFromResponse(resp, archiveURL) {
+			config.FoundHostsMu.Lock()
+			config.FoundHosts[host] = true
+			config.FoundHostsMu.Unlock()
 			PrintFound(archiveURL)
 		}
 	}
