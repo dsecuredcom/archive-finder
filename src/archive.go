@@ -95,20 +95,20 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 
 	u, err := url.Parse(archiveURL)
 	if err != nil {
-		// If we can’t parse the URL, just skip
 		atomic.AddInt64(&config.CompletedRequests, 1)
 		return
 	}
 	host := u.Host
 
+	// 1) QUICK CHECK: If host is already found, skip entire request
 	config.FoundHostsMu.Lock()
-	if config.FoundHosts[host] {
-		// Already found => skip
-		config.FoundHostsMu.Unlock()
+	alreadyFound := config.FoundHosts[host]
+	config.FoundHostsMu.Unlock()
+
+	if alreadyFound {
 		atomic.AddInt64(&config.CompletedRequests, 1)
 		return
 	}
-	config.FoundHostsMu.Unlock()
 
 	startTime := time.Now()
 	resp, err := client.Get(archiveURL)
@@ -137,9 +137,15 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 	if resp.StatusCode == http.StatusOK {
 		if verifyFromResponse(resp, archiveURL) {
 			config.FoundHostsMu.Lock()
-			config.FoundHosts[host] = true
-			config.FoundHostsMu.Unlock()
-			PrintFound(archiveURL)
+			if !config.FoundHosts[host] {
+				config.FoundHosts[host] = true
+				config.FoundHostsMu.Unlock()
+
+				PrintFound(archiveURL) // We print only once for this host
+			} else {
+				// Another goroutine set it while we were verifying
+				config.FoundHostsMu.Unlock()
+			}
 		}
 	}
 
