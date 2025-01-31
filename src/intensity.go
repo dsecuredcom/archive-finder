@@ -14,6 +14,7 @@ var (
 		"database",
 		"log",
 		"logs",
+		"123",
 	}
 	basePathsBig = []string{
 		"backup",
@@ -29,6 +30,8 @@ var (
 		"site",
 		"http",
 		"website",
+		"1",
+		"123",
 	}
 
 	extensionsSmall = []string{
@@ -48,6 +51,7 @@ var (
 		"rar",
 		"7z",
 		"gz",
+		"bz2",
 	}
 )
 

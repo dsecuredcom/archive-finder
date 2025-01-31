@@ -12,21 +12,6 @@ import (
 )
 
 var (
-	basePaths = []string{
-		"backup",
-		"backups",
-		"_backup",
-		"backup1",
-		"www",
-		"http",
-		"db",
-		"dump",
-		"database",
-		"backup/backup",
-		"backups/backup",
-		"backups/http",
-	}
-
 	extensions = []string{
 		"zip",
 		"tar",
@@ -34,6 +19,7 @@ var (
 		"tar.gz",
 		"7z",
 		"gz",
+		"bz2",
 	}
 
 	magicBytes = map[string][]byte{
@@ -43,6 +29,7 @@ var (
 		"tar.gz": {0x1F, 0x8B},
 		"7z":     {0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C},
 		"gz":     {0x1F, 0x8B},
+		"bz2":    {0x42, 0x5A, 0x68},
 	}
 )
 
@@ -164,24 +151,41 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 
 // verifyFromResponse checks the first few bytes to confirm if the file is a valid archive.
 func verifyFromResponse(resp *http.Response, archiveURL string) bool {
+
+	ctype := resp.Header.Get("Content-Type")
+	if strings.Contains(strings.ToLower(ctype), "text/html") {
+		// Very likely not an archive, unless the server is misconfigured
+		return false
+	}
+
 	ext := getExtension(archiveURL)
+	const maxRead = 2048
+	header := make([]byte, maxRead)
+
+	n, err := io.ReadFull(resp.Body, header)
+	if err != nil {
+		// If we couldn’t read enough, fallback to your existing logic or just return false
+		return false
+	}
+	header = header[:n] // only what was read
+
+	// Check if the chunk looks like HTML
+	lowerChunk := strings.ToLower(string(header))
+	if strings.Contains(lowerChunk, "<html") || strings.Contains(lowerChunk, "<!doctype") {
+		return false
+	}
 
 	// Special case for tar: read enough bytes to check the "ustar" signature
 	if ext == "tar" {
-		header := make([]byte, 512)
-		if _, err := io.ReadFull(resp.Body, header); err != nil {
+		// old TAR logic
+		if n < 512 {
 			return false
 		}
 		return bytes.Equal(header[257:262], []byte("ustar")) ||
 			bytes.Equal(header[257:263], []byte("ustar\000"))
 	}
 
-	// Otherwise, read first 6 bytes
-	header := make([]byte, 6)
-	if _, err := io.ReadFull(resp.Body, header); err != nil {
-		return false
-	}
-
+	// For other types, fallback to your existing magic check but on `header`
 	if magic, ok := magicBytes[ext]; ok {
 		return bytes.HasPrefix(header, magic)
 	}
