@@ -13,6 +13,7 @@ func NewHTTPClient(config *Config) *http.Client {
 		IdleConnTimeout:     90 * time.Second,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		DisableKeepAlives:   false, // Enable connection reuse
+		ForceAttemptHTTP2:   false,
 	}
 
 	return &http.Client{
