@@ -3,6 +3,7 @@ package src
 import (
 	"bytes"
 	"fmt"
+	"github.com/valyala/fasthttp"
 	"io"
 	"net/http"
 	"net/url"
@@ -32,6 +33,39 @@ var (
 		"bz2":    {0x42, 0x5A, 0x68},
 	}
 )
+
+func doHeadStd(archiveURL string, stdClient *http.Client) (int, string, error) {
+	req, err := http.NewRequest("HEAD", archiveURL, nil)
+	if err != nil {
+		return 0, "", err
+	}
+	req.Header.Set("User-Agent", GetRandomUserAgent())
+	resp, err := stdClient.Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode, resp.Header.Get("Content-Type"), nil
+}
+
+func doHeadFast(archiveURL string, fastClient *FastHTTPClient) (int, string, error) {
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(resp)
+
+	req.SetRequestURI(archiveURL)
+	req.Header.SetMethod("HEAD")
+	req.Header.Set("User-Agent", GetRandomUserAgent())
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.SetProtocol("HTTP/1.1")
+
+	err := fastClient.client.Do(req, resp)
+	if err != nil {
+		return 0, "", err
+	}
+	return resp.StatusCode(), string(resp.Header.Peek("Content-Type")), nil
+}
 
 func GenerateArchivePaths(host string, config *Config) <-chan string {
 	archiveChan := make(chan string, 100) // Buffered channel for some throughput
@@ -81,9 +115,25 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 
 func doRequest(archiveURL string, config *Config, stdClient *http.Client, fastClient *FastHTTPClient) (int, string, []byte, error) {
 	const maxRead = 2048
+	var headStatus int
+	var headContentType string
+	var err error
 
 	if config.UseFastHTTP {
-		// fasthttp
+		headStatus, headContentType, err = doHeadFast(archiveURL, fastClient)
+	} else {
+		headStatus, headContentType, err = doHeadStd(archiveURL, stdClient)
+	}
+	if err != nil {
+		return 0, "", nil, err
+	}
+
+	lc := strings.ToLower(headContentType)
+	if !(headStatus == 200 || headStatus == 206) || (!(strings.Contains(lc, "application")) && !(strings.Contains(lc, "octet"))) {
+		return headStatus, headContentType, nil, nil
+	}
+
+	if config.UseFastHTTP {
 		return fastClient.DoRequest(archiveURL, maxRead)
 	} else {
 		req, err := http.NewRequest("GET", archiveURL, nil)
