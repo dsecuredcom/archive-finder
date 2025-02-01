@@ -86,8 +86,13 @@ func doRequest(archiveURL string, config *Config, stdClient *http.Client, fastCl
 		// fasthttp
 		return fastClient.DoRequest(archiveURL, maxRead)
 	} else {
-		// net/http
-		resp, err := stdClient.Get(archiveURL)
+		req, err := http.NewRequest("GET", archiveURL, nil)
+		if err != nil {
+			return 0, "", nil, err
+		}
+		req.Header.Set("User-Agent", GetRandomUserAgent())
+
+		resp, err := stdClient.Do(req)
 		if err != nil {
 			return 0, "", nil, err
 		}

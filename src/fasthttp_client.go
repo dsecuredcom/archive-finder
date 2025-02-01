@@ -38,6 +38,7 @@ func (f *FastHTTPClient) DoRequest(url string, maxBytes int64) (int, string, []b
 	req.SetRequestURI(url)
 	req.Header.SetMethod("GET")
 	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("User-Agent", GetRandomUserAgent())
 	req.Header.SetProtocol("HTTP/1.1")
 
 	err := f.client.DoRedirects(req, resp, 0)
