@@ -2,27 +2,6 @@
 
 This project scans a list of hosts and attempts to locate potential archive files (e.g., `.zip`, `.tar`, `.rar`, etc.) on those hosts. It generates likely archive URLs based on known paths, domain name parts, and date-based patterns, then checks if those URLs lead to real archives.
 
-## Project Structure
-
-```
-myproject/
-├── go.mod
-├── main.go
-└── src/
-    ├── archive.go
-    ├── config.go
-    ├── http_client.go
-    ├── processor.go
-    └── utils.go
-```
-
-- **main.go**: The entry point for the application.
-- **archive.go**: Logic for archive detection, including path generation and verifying responses.
-- **config.go**: Handles CLI flags and application configuration.
-- **http_client.go**: Creates a custom `http.Client` with desired `Transport` settings.
-- **processor.go**: Reads and processes the hosts file, manages concurrency, and displays progress.
-- **utils.go**: Utility functions for domain parsing, IP/MD5 checks, and string splitting.
-
 ## Requirements
 
 - Go 1.20 (or higher)
@@ -80,6 +59,9 @@ myproject/
 
 - `-extensions`
   Comma-separated list of extensions (overwrites intensity-based extensions)
+
+- `-fasthttp`
+  Uses fasthttp to send requests instead of stlib
 
 - `-verbose`  
   Enable verbose output (default false).
