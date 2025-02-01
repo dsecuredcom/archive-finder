@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-// isMD5 checks if a string is a valid 32-character MD5 hash.
 func isMD5(s string) bool {
 	if len(s) != 32 {
 		return false
@@ -21,12 +20,10 @@ func isMD5(s string) bool {
 	return true
 }
 
-// isIP checks if a string is a valid IP address.
 func isIP(s string) bool {
 	return net.ParseIP(s) != nil
 }
 
-// dashSplitPart splits on '-' and returns unique, trimmed parts.
 func dashSplitPart(s string) []string {
 	splits := strings.Split(s, "-")
 	results := make([]string, 0, len(splits)+1)
@@ -38,7 +35,7 @@ func dashSplitPart(s string) []string {
 			seen[spTrimmed] = true
 		}
 	}
-	// Add the full string if not already present
+
 	if s != "" && !seen[s] {
 		results = append(results, s)
 		seen[s] = true
@@ -46,7 +43,6 @@ func dashSplitPart(s string) []string {
 	return results
 }
 
-// generateDomainParts extracts subdomain parts, skipping IP or MD5-like parts.
 func generateDomainParts(baseURL string) []string {
 	u, err := url.Parse(baseURL)
 	if err != nil {
@@ -61,7 +57,6 @@ func generateDomainParts(baseURL string) []string {
 		return nil
 	}
 
-	// If there's only domain + TLD, just parse that one part.
 	if len(parts) == 2 {
 		domain := parts[0]
 		if !isIP(domain) && !isMD5(domain) {
@@ -70,7 +65,6 @@ func generateDomainParts(baseURL string) []string {
 		return nil
 	}
 
-	// For subdomains, we only take up to 2 parts (you can adjust as needed)
 	subdomainParts := parts[:len(parts)-2]
 	if len(subdomainParts) > 2 {
 		subdomainParts = subdomainParts[:2]

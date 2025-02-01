@@ -58,7 +58,6 @@ var (
 func GetBasePathsAndExtensions(config *Config) ([]string, []string) {
 	var basePaths, extensions []string
 
-	// Determine the intensity-based defaults
 	switch config.Intensity {
 	case "small":
 		basePaths, extensions = basePathsSmall, extensionsSmall
@@ -70,7 +69,6 @@ func GetBasePathsAndExtensions(config *Config) ([]string, []string) {
 		basePaths, extensions = basePathsMedium, extensionsMedium
 	}
 
-	// Override only if the user provided them
 	if len(config.UserBaseWords) > 0 {
 		basePaths = config.UserBaseWords
 	}

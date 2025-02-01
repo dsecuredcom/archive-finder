@@ -1,4 +1,3 @@
-// processor.go
 package src
 
 import (
@@ -11,7 +10,8 @@ import (
 	"sync"
 )
 
-func ProcessHostsFile(config *Config, client *http.Client) error {
+func ProcessHostsFile(config *Config, stdClient *http.Client, fastClient *FastHTTPClient) error {
+
 	file, err := os.Open(config.HostsFile)
 	if err != nil {
 		return err
@@ -56,17 +56,16 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 	for _, host := range lines {
 		chunk = append(chunk, host)
 		if len(chunk) >= chunkSize {
-			if err := processHostsChunk(chunk, config, client); err != nil {
+			if err := processHostsChunk(chunk, config, stdClient, fastClient); err != nil {
 				return err
 			}
 			chunk = make([]string, 0, chunkSize)
-			// Force garbage collection after each chunk if desired
 			runtime.GC()
 		}
 	}
 
 	if len(chunk) > 0 {
-		if err := processHostsChunk(chunk, config, client); err != nil {
+		if err := processHostsChunk(chunk, config, stdClient, fastClient); err != nil {
 			return err
 		}
 	}
@@ -74,29 +73,27 @@ func ProcessHostsFile(config *Config, client *http.Client) error {
 	return nil
 }
 
-func processHostsChunk(hosts []string, config *Config, client *http.Client) error {
+func processHostsChunk(hosts []string, config *Config, stdClient *http.Client, fastClient *FastHTTPClient) error {
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, config.Concurrency)
 
 	for _, host := range hosts {
 		archiveChan := GenerateArchivePaths(host, config)
 
-		// Create a separate goroutine to handle each archive channel
 		wg.Add(1)
 		go func(ch <-chan string) {
 			defer wg.Done()
-			for archiveURL := range ch { // This ensures the channel is fully drained
+			for archiveURL := range ch {
 				sem <- struct{}{}
 				wg.Add(1)
 				go func(url string) {
 					defer wg.Done()
 					defer func() { <-sem }()
-					CheckArchive(url, client, config, config.Verbose)
+					CheckArchive(url, stdClient, fastClient, config, config.Verbose)
 				}(archiveURL)
 			}
 		}(archiveChan)
 	}
-
 	wg.Wait()
 	return nil
 }

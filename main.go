@@ -1,9 +1,11 @@
+// main.go
 package main
 
 import (
 	"io"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"sync/atomic"
 	"time"
@@ -19,7 +21,16 @@ func main() {
 
 	config := src.ParseFlags()
 
-	client := src.NewHTTPClient(config)
+	var stdClient *http.Client
+	var fastClient *src.FastHTTPClient
+
+	if config.UseFastHTTP {
+		// Falls fasthttp gewünscht:
+		fastClient = src.NewFastHTTPClient(config)
+	} else {
+		// Falls net/http gewünscht:
+		stdClient = src.NewHTTPClient(config)
+	}
 
 	stopProgress := make(chan struct{})
 	go func() {
@@ -37,8 +48,7 @@ func main() {
 		}
 	}()
 
-	err := src.ProcessHostsFile(config, client)
-
+	err := src.ProcessHostsFile(config, stdClient, fastClient)
 	close(stopProgress)
 
 	done := atomic.LoadInt64(&config.CompletedRequests)

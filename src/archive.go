@@ -79,9 +79,39 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 	return archiveChan
 }
 
-// CheckArchive performs the HTTP request and checks if the response looks like a valid archive.
-func CheckArchive(archiveURL string, client *http.Client, config *Config, verbose bool) {
+func doRequest(archiveURL string, config *Config, stdClient *http.Client, fastClient *FastHTTPClient) (int, string, []byte, error) {
+	const maxRead = 2048
 
+	if config.UseFastHTTP {
+		// fasthttp
+		return fastClient.DoRequest(archiveURL, maxRead)
+	} else {
+		// net/http
+		resp, err := stdClient.Get(archiveURL)
+		if err != nil {
+			return 0, "", nil, err
+		}
+		defer resp.Body.Close()
+
+		statusCode := resp.StatusCode
+		contentType := resp.Header.Get("Content-Type")
+
+		// Die ersten maxRead Bytes lesen
+		buf := make([]byte, maxRead)
+		n, _ := io.ReadFull(resp.Body, buf) // Fehler ignorieren wir hier mal
+		buf = buf[:n]
+
+		return statusCode, contentType, buf, nil
+	}
+}
+
+func CheckArchive(
+	archiveURL string,
+	stdClient *http.Client, // net/http client
+	fastClient *FastHTTPClient, // fasthttp client
+	config *Config,
+	verbose bool,
+) {
 	u, err := url.Parse(archiveURL)
 	if err != nil {
 		atomic.AddInt64(&config.CompletedRequests, 1)
@@ -89,7 +119,6 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 	}
 	host := u.Host
 
-	// 1) QUICK CHECK: If host is already found, skip entire request
 	config.FoundHostsMu.Lock()
 	alreadyFound := config.FoundHosts[host]
 	config.FoundHostsMu.Unlock()
@@ -100,7 +129,8 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 	}
 
 	startTime := time.Now()
-	resp, err := client.Get(archiveURL)
+	statusCode, ctype, body, err := doRequest(archiveURL, config, stdClient, fastClient)
+	duration := time.Since(startTime)
 
 	if err != nil {
 		if verbose {
@@ -109,91 +139,60 @@ func CheckArchive(archiveURL string, client *http.Client, config *Config, verbos
 		atomic.AddInt64(&config.CompletedRequests, 1)
 		return
 	}
-	defer resp.Body.Close()
 
-	duration := time.Since(startTime)
 	if verbose {
-		sizeStr := "unknown"
-
-		if resp.ContentLength >= 0 {
-			sizeStr = fmt.Sprintf("%d", resp.ContentLength)
-		}
-
-		PrintVerbose("url=%s took=%v status=%d size=%s", archiveURL, duration, resp.StatusCode, sizeStr)
+		sizeStr := "unknown" // fasthttp kann das nicht direkt, net/http liefert ContentLength
+		PrintVerbose("url=%s took=%v status=%d size=%s", archiveURL, duration, statusCode, sizeStr)
 	}
 
-	// Only proceed if status == 200
-	if resp.StatusCode == http.StatusOK {
-		if verifyFromResponse(resp, archiveURL) {
+	if statusCode == 200 {
+		if verifyBody(body, archiveURL, ctype) {
 			config.FoundHostsMu.Lock()
 			if !config.FoundHosts[host] {
 				config.FoundHosts[host] = true
 				config.FoundHostsMu.Unlock()
 
-				PrintFound(archiveURL) // We print only once for this host
+				PrintFound(archiveURL) // Nur einmal pro Host
 			} else {
-				// Another goroutine set it while we were verifying
 				config.FoundHostsMu.Unlock()
 			}
-		}
-	}
-
-	_, err = io.Copy(io.Discard, resp.Body)
-
-	if err != nil {
-		if verbose {
-			PrintError("Failed to fully read response body for %s: %v", archiveURL, err)
 		}
 	}
 
 	atomic.AddInt64(&config.CompletedRequests, 1)
 }
 
-// verifyFromResponse checks the first few bytes to confirm if the file is a valid archive.
-func verifyFromResponse(resp *http.Response, archiveURL string) bool {
-
-	ctype := resp.Header.Get("Content-Type")
+func verifyBody(body []byte, archiveURL string, ctype string) bool {
 	if strings.Contains(strings.ToLower(ctype), "text/html") {
-		// Very likely not an archive, unless the server is misconfigured
 		return false
 	}
 
 	ext := getExtension(archiveURL)
-	const maxRead = 2048
-	header := make([]byte, maxRead)
-
-	n, err := io.ReadFull(resp.Body, header)
-	if err != nil {
-		// If we couldn’t read enough, fallback to your existing logic or just return false
+	n := len(body)
+	if n == 0 {
 		return false
 	}
-	header = header[:n] // only what was read
 
-	// Check if the chunk looks like HTML
-	lowerChunk := strings.ToLower(string(header))
+	lowerChunk := strings.ToLower(string(body))
 	if strings.Contains(lowerChunk, "<html") || strings.Contains(lowerChunk, "<!doctype") {
 		return false
 	}
 
-	// Special case for tar: read enough bytes to check the "ustar" signature
 	if ext == "tar" {
-		// old TAR logic
+
 		if n < 512 {
 			return false
 		}
-		return bytes.Equal(header[257:262], []byte("ustar")) ||
-			bytes.Equal(header[257:263], []byte("ustar\000"))
+		return bytes.Equal(body[257:262], []byte("ustar")) ||
+			bytes.Equal(body[257:263], []byte("ustar\000"))
 	}
 
-	// For other types, fallback to your existing magic check but on `header`
 	if magic, ok := magicBytes[ext]; ok {
-		return bytes.HasPrefix(header, magic)
+		return bytes.HasPrefix(body, magic)
 	}
 	return false
 }
 
-// getExtension extracts the known extension from a URL by matching
-// our list of possible extensions.
 func getExtension(archiveURL string) string {
 	for _, ext := range extensions {
 		if strings.HasSuffix(archiveURL, "."+ext) {
@@ -203,8 +202,6 @@ func getExtension(archiveURL string) string {
 	return ""
 }
 
-// normalizeHost ensures the host has an http/https scheme
-// and returns scheme://host
 func normalizeHost(host string) string {
 	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
 		host = "https://" + host

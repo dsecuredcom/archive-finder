@@ -22,6 +22,7 @@ type Config struct {
 	Intensity             string
 	UserBaseWords         []string
 	UserExtensions        []string
+	UseFastHTTP           bool
 }
 
 func ParseFlags() *Config {
@@ -37,7 +38,7 @@ func ParseFlags() *Config {
 	flag.StringVar(&config.Intensity, "intensity", "medium", "Choose scanning intensity: small, medium, or big")
 	flag.StringVar(&wordList, "words", "", "Comma-separated list of words (overwrites intensity-based words)")
 	flag.StringVar(&extensionList, "extensions", "", "Comma-separated list of extensions (overwrites intensity-based extensions)")
-
+	flag.BoolVar(&config.UseFastHTTP, "fasthttp", false, "Benutze fasthttp statt net/http")
 	flag.Parse()
 
 	if config.HostsFile == "" {
