@@ -57,6 +57,11 @@ func ParseFlags() *Config {
 		config.UserExtensions = strings.Split(extensionList, ",")
 	}
 
+	if config.DisableDynamicEntries && config.OnlyDynamicEntries {
+		fmt.Fprintln(os.Stderr, "You cant have both options: DisableDynamicEntries&&OnlyDynamicEntries.")
+		os.Exit(1)
+	}
+
 	config.FoundHosts = make(map[string]bool)
 
 	return config
