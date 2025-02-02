@@ -23,6 +23,7 @@ type Config struct {
 	UserBaseWords         []string
 	UserExtensions        []string
 	UseFastHTTP           bool
+	OnlyDynamicEntries    bool
 }
 
 func ParseFlags() *Config {
@@ -38,7 +39,8 @@ func ParseFlags() *Config {
 	flag.StringVar(&config.Intensity, "intensity", "medium", "Choose scanning intensity: small, medium, or big")
 	flag.StringVar(&wordList, "words", "", "Comma-separated list of words (overwrites intensity-based words)")
 	flag.StringVar(&extensionList, "extensions", "", "Comma-separated list of extensions (overwrites intensity-based extensions)")
-	flag.BoolVar(&config.UseFastHTTP, "fasthttp", false, "Benutze fasthttp statt net/http")
+	flag.BoolVar(&config.UseFastHTTP, "fasthttp", false, "Use fasthttp instead of net/http")
+	flag.BoolVar(&config.OnlyDynamicEntries, "only-dynamic-entries", false, "Use only dynamically generated entries")
 	flag.Parse()
 
 	if config.HostsFile == "" {

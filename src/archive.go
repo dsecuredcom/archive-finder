@@ -81,10 +81,12 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 		}
 
 		// Generate from basePaths + extensions
-		for _, basePath := range basePaths {
-			for _, ext := range extensions {
-				archive := fmt.Sprintf("%s/%s.%s", baseURL, basePath, ext)
-				archiveChan <- archive
+		if !config.OnlyDynamicEntries {
+			for _, basePath := range basePaths {
+				for _, ext := range extensions {
+					archive := fmt.Sprintf("%s/%s.%s", baseURL, basePath, ext)
+					archiveChan <- archive
+				}
 			}
 		}
 
@@ -93,20 +95,22 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 			parts := generateDomainParts(baseURL)
 			for _, part := range parts {
 				for _, ext := range extensions {
-					archive := fmt.Sprintf("%s/%s.%s", baseURL, part, ext)
-					archiveChan <- archive
+					archiveChan <- fmt.Sprintf("%s/%s.%s", baseURL, part, ext)
+					archiveChan <- fmt.Sprintf("%s/backups/%s.%s", baseURL, part, ext)
 				}
 			}
-		}
 
-		// Date-based entries
-		now := time.Now()
-		currentYear := now.Year()
-		todayStr := now.Format("2006-01-02")
+			// Date-based entries
+			now := time.Now()
+			currentYear := now.Year()
+			todayStr := now.Format("2006-01-02")
 
-		for _, ext := range extensions {
-			archiveChan <- fmt.Sprintf("%s/backup%d.%s", baseURL, currentYear, ext)
-			archiveChan <- fmt.Sprintf("%s/backup-%s.%s", baseURL, todayStr, ext)
+			for _, ext := range extensions {
+				archiveChan <- fmt.Sprintf("%s/backup%d.%s", baseURL, currentYear, ext)
+				archiveChan <- fmt.Sprintf("%s/backup-%s.%s", baseURL, todayStr, ext)
+				archiveChan <- fmt.Sprintf("%s/backups/backup%d.%s", baseURL, currentYear, ext)
+				archiveChan <- fmt.Sprintf("%s/backups/backup-%s.%s", baseURL, todayStr, ext)
+			}
 		}
 	}()
 
