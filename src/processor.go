@@ -43,13 +43,11 @@ func ProcessHostsFile(config *Config, stdClient *http.Client, fastClient *FastHT
 	knownPerHost := numBasePaths*numExtensions + 2*numExtensions
 	estimated := knownPerHost * len(lines)
 
-	if config.DisableDynamicEntries {
-		PrintWithTime("Static list: %d requests (no dynamic subdomain entries)\n", estimated)
-	}
-
 	if config.OnlyDynamicEntries {
 		estimatedEntries := len(lines) * numExtensions * 6 // rough estimation
 		PrintWithTime("Dynamic list: at least ~%d requests (only dynamic entries)\n", estimatedEntries)
+	} else {
+		PrintWithTime("Static list: %d requests (no dynamic subdomain entries)\n", estimated)
 	}
 
 	var chunk []string
