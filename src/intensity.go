@@ -15,6 +15,9 @@ var (
 		"log",
 		"logs",
 		"123",
+		"api",
+		"admin",
+		"inc",
 	}
 	basePathsBig = []string{
 		"backup",
@@ -37,6 +40,9 @@ var (
 		"website",
 		"1",
 		"123",
+		"api",
+		"admin",
+		"inc",
 	}
 
 	extensionsSmall = []string{
