@@ -18,6 +18,8 @@ var (
 		"api",
 		"admin",
 		"inc",
+		"private",
+		"private/backup",
 	}
 	basePathsBig = []string{
 		"backup",
@@ -43,6 +45,8 @@ var (
 		"api",
 		"admin",
 		"inc",
+		"private",
+		"private/backup",
 	}
 
 	extensionsSmall = []string{
