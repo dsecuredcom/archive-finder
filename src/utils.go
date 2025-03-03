@@ -113,6 +113,37 @@ func generateDomainParts(baseURL string) []string {
 			}
 			allParts = append(allParts, dp)
 		}
+
+		if len(dashParts) > 1 {
+			// Create a new string for first-character concatenation
+			var firstChars string
+			for _, dp := range dashParts {
+				dp = strings.TrimSpace(dp)
+				if dp == "" {
+					continue
+				}
+				allParts = append(allParts, dp)
+
+				// Add first character to our concatenated string if it exists
+				if len(dp) > 0 {
+					firstChars += string(dp[0])
+				}
+			}
+
+			// Add the concatenated string if it's not empty
+			if firstChars != "" {
+				allParts = append(allParts, firstChars)
+			}
+		} else {
+			// Handle the case with no dashes (single part)
+			for _, dp := range dashParts {
+				dp = strings.TrimSpace(dp)
+				if dp == "" {
+					continue
+				}
+				allParts = append(allParts, dp)
+			}
+		}
 	}
 
 	// Now final pass: skip numeric, and deduplicate

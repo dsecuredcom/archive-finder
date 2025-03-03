@@ -92,11 +92,14 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 
 		// Generate dynamic entries from subdomain parts
 		if !config.DisableDynamicEntries {
-			parts := generateDomainParts(baseURL)
-			for _, part := range parts {
-				for _, ext := range extensions {
-					archiveChan <- fmt.Sprintf("%s/%s.%s", baseURL, part, ext)
-					archiveChan <- fmt.Sprintf("%s/backups/%s.%s", baseURL, part, ext)
+			if config.ModuleDomainParts {
+				parts := generateDomainParts(baseURL)
+				for _, part := range parts {
+					for _, ext := range extensions {
+						archiveChan <- fmt.Sprintf("%s/%s.%s", baseURL, part, ext)
+						archiveChan <- fmt.Sprintf("%s/backups/%s.%s", baseURL, part, ext)
+						archiveChan <- fmt.Sprintf("%s/%s/backup.%s", baseURL, part, ext)
+					}
 				}
 			}
 
@@ -106,10 +109,17 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 			todayStr := now.Format("2006-01-02")
 
 			for _, ext := range extensions {
-				archiveChan <- fmt.Sprintf("%s/backup%d.%s", baseURL, currentYear, ext)
-				archiveChan <- fmt.Sprintf("%s/backup-%s.%s", baseURL, todayStr, ext)
-				archiveChan <- fmt.Sprintf("%s/backups/backup%d.%s", baseURL, currentYear, ext)
-				archiveChan <- fmt.Sprintf("%s/backups/backup-%s.%s", baseURL, todayStr, ext)
+				if config.ModuleYears {
+					archiveChan <- fmt.Sprintf("%s/backup%d.%s", baseURL, currentYear, ext)
+					archiveChan <- fmt.Sprintf("%s/backup-%d.%s", baseURL, currentYear, ext)
+					archiveChan <- fmt.Sprintf("%s/backup_%d.%s", baseURL, currentYear, ext)
+					archiveChan <- fmt.Sprintf("%s/backups/backup%d.%s", baseURL, currentYear, ext)
+				}
+
+				if config.ModuleDate {
+					archiveChan <- fmt.Sprintf("%s/backup-%s.%s", baseURL, todayStr, ext)
+					archiveChan <- fmt.Sprintf("%s/backups/backup-%s.%s", baseURL, todayStr, ext)
+				}
 			}
 		}
 	}()
