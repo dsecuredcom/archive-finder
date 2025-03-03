@@ -99,6 +99,9 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 						archiveChan <- fmt.Sprintf("%s/%s.%s", baseURL, part, ext)
 						archiveChan <- fmt.Sprintf("%s/backups/%s.%s", baseURL, part, ext)
 						archiveChan <- fmt.Sprintf("%s/%s/backup.%s", baseURL, part, ext)
+						if len(part) < 4 {
+							archiveChan <- fmt.Sprintf("%s/%sbackup.%s", baseURL, part, ext)
+						}
 					}
 				}
 			}
