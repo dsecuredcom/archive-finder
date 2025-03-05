@@ -45,7 +45,7 @@ func ParseFlags() *Config {
 	flag.BoolVar(&config.UseFastHTTP, "fasthttp", false, "Use fasthttp instead of net/http")
 	flag.BoolVar(&config.OnlyDynamicEntries, "only-dynamic-entries", false, "Use only dynamically generated entries")
 	flag.BoolVar(&config.ModuleYears, "with-year", true, "Generate based on current year")
-	flag.BoolVar(&config.ModuleDate, "with-date", true, "Generate based on current date")
+	flag.BoolVar(&config.ModuleDate, "with-date", false, "Generate based on current date")
 	flag.BoolVar(&config.ModuleDomainParts, "with-host-parts", true, "Generate based on host parts")
 	flag.Parse()
 
