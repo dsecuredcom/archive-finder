@@ -44,9 +44,9 @@ func ParseFlags() *Config {
 	flag.StringVar(&extensionList, "extensions", "", "Comma-separated list of extensions (overwrites intensity-based extensions)")
 	flag.BoolVar(&config.UseFastHTTP, "fasthttp", false, "Use fasthttp instead of net/http")
 	flag.BoolVar(&config.OnlyDynamicEntries, "only-dynamic-entries", false, "Use only dynamically generated entries")
-	flag.BoolVar(&config.ModuleYears, "with-year", true, "Generate based on current year")
+	flag.BoolVar(&config.ModuleYears, "with-year", false, "Generate based on current year")
 	flag.BoolVar(&config.ModuleDate, "with-date", false, "Generate based on current date")
-	flag.BoolVar(&config.ModuleDomainParts, "with-host-parts", true, "Generate based on host parts")
+	flag.BoolVar(&config.ModuleDomainParts, "with-host-parts", false, "Generate based on host parts")
 	flag.Parse()
 
 	if config.HostsFile == "" {
@@ -65,6 +65,11 @@ func ParseFlags() *Config {
 
 	if config.DisableDynamicEntries && config.OnlyDynamicEntries {
 		fmt.Fprintln(os.Stderr, "You cant have both options: DisableDynamicEntries&&OnlyDynamicEntries.")
+		os.Exit(1)
+	}
+
+	if (config.OnlyDynamicEntries || !config.DisableDynamicEntries) && (config.ModuleDate == false && config.ModuleYears == false && config.ModuleDomainParts == false) {
+		fmt.Fprintln(os.Stderr, "Make sure to activate at least one module.")
 		os.Exit(1)
 	}
 
