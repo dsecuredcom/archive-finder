@@ -51,6 +51,30 @@ func dashSplitPart(s string) []string {
 	return splits
 }
 
+func firstSubdomainPart(baseURL string, length int) string {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return ""
+	}
+	hostname := u.Hostname()
+	if isIPAddress(hostname) {
+		return ""
+	}
+
+	// Check if we have enough parts
+	parts := strings.Split(hostname, ".")
+	if len(parts) < 3 {
+		return ""
+	}
+
+	subdomain := parts[0]
+	// Return the first "length" characters of the subdomain (or the whole subdomain if it's shorter)
+	if len(subdomain) > length {
+		return subdomain[:length]
+	}
+	return subdomain
+}
+
 func generateDomainParts(baseURL string) []string {
 	u, err := url.Parse(baseURL)
 	if err != nil {

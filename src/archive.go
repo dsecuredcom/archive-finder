@@ -68,12 +68,20 @@ func doHeadFast(archiveURL string, fastClient *FastHTTPClient) (int, string, err
 }
 
 func GenerateArchivePaths(host string, config *Config) <-chan string {
-	archiveChan := make(chan string, 100) // Buffered channel for some throughput
+	archiveChan := make(chan string, 250) // Buffered channel for some throughput
 
 	basePaths, extensions := GetBasePathsAndExtensions(config)
 
 	go func() {
 		defer close(archiveChan)
+		seen := make(map[string]struct{})
+
+		addPath := func(path string) {
+			if _, ok := seen[path]; !ok {
+				seen[path] = struct{}{}
+				archiveChan <- path
+			}
+		}
 
 		baseURL := normalizeHost(host)
 		if baseURL == "" {
@@ -85,7 +93,7 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 			for _, basePath := range basePaths {
 				for _, ext := range extensions {
 					archive := fmt.Sprintf("%s/%s.%s", baseURL, basePath, ext)
-					archiveChan <- archive
+					addPath(archive)
 				}
 			}
 		}
@@ -96,12 +104,21 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 				parts := generateDomainParts(baseURL)
 				for _, part := range parts {
 					for _, ext := range extensions {
-						archiveChan <- fmt.Sprintf("%s/%s.%s", baseURL, part, ext)
-						archiveChan <- fmt.Sprintf("%s/backups/%s.%s", baseURL, part, ext)
-						archiveChan <- fmt.Sprintf("%s/%s/backup.%s", baseURL, part, ext)
+						addPath(fmt.Sprintf("%s/%s.%s", baseURL, part, ext))
+						addPath(fmt.Sprintf("%s/backups/%s.%s", baseURL, part, ext))
+						addPath(fmt.Sprintf("%s/%s/backup.%s", baseURL, part, ext))
 						if len(part) < 4 {
-							archiveChan <- fmt.Sprintf("%s/%sbackup.%s", baseURL, part, ext)
+							addPath(fmt.Sprintf("%s/%sbackup.%s", baseURL, part, ext))
 						}
+					}
+				}
+			}
+
+			if config.ModuleFirstChars {
+				relevantString := firstSubdomainPart(baseURL, 4)
+				if relevantString != "" {
+					for _, ext := range extensions {
+						addPath(fmt.Sprintf("%s/%s.%s", baseURL, relevantString, ext))
 					}
 				}
 			}
@@ -113,15 +130,15 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 
 			for _, ext := range extensions {
 				if config.ModuleYears {
-					archiveChan <- fmt.Sprintf("%s/backup%d.%s", baseURL, currentYear, ext)
-					archiveChan <- fmt.Sprintf("%s/backup-%d.%s", baseURL, currentYear, ext)
-					archiveChan <- fmt.Sprintf("%s/backup_%d.%s", baseURL, currentYear, ext)
-					archiveChan <- fmt.Sprintf("%s/backups/backup%d.%s", baseURL, currentYear, ext)
+					addPath(fmt.Sprintf("%s/backup%d.%s", baseURL, currentYear, ext))
+					addPath(fmt.Sprintf("%s/backup-%d.%s", baseURL, currentYear, ext))
+					addPath(fmt.Sprintf("%s/backup_%d.%s", baseURL, currentYear, ext))
+					addPath(fmt.Sprintf("%s/backups/backup%d.%s", baseURL, currentYear, ext))
 				}
 
 				if config.ModuleDate {
-					archiveChan <- fmt.Sprintf("%s/backup-%s.%s", baseURL, todayStr, ext)
-					archiveChan <- fmt.Sprintf("%s/backups/backup-%s.%s", baseURL, todayStr, ext)
+					addPath(fmt.Sprintf("%s/backup-%s.%s", baseURL, todayStr, ext))
+					addPath(fmt.Sprintf("%s/backups/backup-%s.%s", baseURL, todayStr, ext))
 				}
 			}
 		}
