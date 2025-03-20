@@ -100,7 +100,8 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 		if !config.OnlyDynamicEntries {
 			for _, basePath := range basePaths {
 				for _, ext := range extensions {
-					archive := fmt.Sprintf("%s/%s.%s", baseURL, basePath, ext)
+					// Using the baseURL directly which now includes the path
+					archive := fmt.Sprintf("%s%s.%s", baseURL, basePath, ext)
 					addPath(archive)
 				}
 			}
@@ -112,11 +113,11 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 				parts := generateDomainParts(baseURL)
 				for _, part := range parts {
 					for _, ext := range extensions {
-						addPath(fmt.Sprintf("%s/%s.%s", baseURL, part, ext))
-						addPath(fmt.Sprintf("%s/backups/%s.%s", baseURL, part, ext))
-						addPath(fmt.Sprintf("%s/%s/backup.%s", baseURL, part, ext))
+						addPath(fmt.Sprintf("%s%s.%s", baseURL, part, ext))
+						addPath(fmt.Sprintf("%sbackups/%s.%s", baseURL, part, ext))
+						addPath(fmt.Sprintf("%s%s/backup.%s", baseURL, part, ext))
 						if len(part) < 4 {
-							addPath(fmt.Sprintf("%s/%sbackup.%s", baseURL, part, ext))
+							addPath(fmt.Sprintf("%s%sbackup.%s", baseURL, part, ext))
 						}
 					}
 				}
@@ -126,7 +127,7 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 				relevantString := firstSubdomainPart(baseURL, 4)
 				if relevantString != "" {
 					for _, ext := range extensions {
-						addPath(fmt.Sprintf("%s/%s.%s", baseURL, relevantString, ext))
+						addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString, ext))
 					}
 				}
 			}
@@ -138,15 +139,15 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 
 			for _, ext := range extensions {
 				if config.ModuleYears {
-					addPath(fmt.Sprintf("%s/backup%d.%s", baseURL, currentYear, ext))
-					addPath(fmt.Sprintf("%s/backup-%d.%s", baseURL, currentYear, ext))
-					addPath(fmt.Sprintf("%s/backup_%d.%s", baseURL, currentYear, ext))
-					addPath(fmt.Sprintf("%s/backups/backup%d.%s", baseURL, currentYear, ext))
+					addPath(fmt.Sprintf("%sbackup%d.%s", baseURL, currentYear, ext))
+					addPath(fmt.Sprintf("%sbackup-%d.%s", baseURL, currentYear, ext))
+					addPath(fmt.Sprintf("%sbackup_%d.%s", baseURL, currentYear, ext))
+					addPath(fmt.Sprintf("%sbackups/backup%d.%s", baseURL, currentYear, ext))
 				}
 
 				if config.ModuleDate {
-					addPath(fmt.Sprintf("%s/backup-%s.%s", baseURL, todayStr, ext))
-					addPath(fmt.Sprintf("%s/backups/backup-%s.%s", baseURL, todayStr, ext))
+					addPath(fmt.Sprintf("%sbackup-%s.%s", baseURL, todayStr, ext))
+					addPath(fmt.Sprintf("%sbackups/backup-%s.%s", baseURL, todayStr, ext))
 				}
 			}
 		}
@@ -307,5 +308,13 @@ func normalizeHost(host string) string {
 	if err != nil {
 		return ""
 	}
-	return fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+
+	// Preserve the path if it exists
+	path := u.Path
+	// Ensure the path ends with a slash if it's not empty
+	if path != "" && !strings.HasSuffix(path, "/") {
+		path = path + "/"
+	}
+
+	return fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, path)
 }

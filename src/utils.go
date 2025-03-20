@@ -170,6 +170,29 @@ func generateDomainParts(baseURL string) []string {
 		}
 	}
 
+	// If there's a path component, add path segments as potential parts
+	if u.Path != "" && u.Path != "/" {
+		// Remove leading and trailing slashes
+		pathClean := strings.Trim(u.Path, "/")
+		// Split by slashes
+		pathParts := strings.Split(pathClean, "/")
+
+		for _, part := range pathParts {
+			if part != "" && len(part) > 2 {
+				allParts = append(allParts, part)
+
+				// Also add dash-split versions of path parts
+				dashParts := dashSplitPart(part)
+				for _, dp := range dashParts {
+					dp = strings.TrimSpace(dp)
+					if dp != "" && len(dp) > 2 {
+						allParts = append(allParts, dp)
+					}
+				}
+			}
+		}
+	}
+
 	// Now final pass: skip numeric, and deduplicate
 	encountered := make(map[string]bool, len(allParts))
 	var unique []string
