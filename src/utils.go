@@ -131,6 +131,7 @@ func generateDomainParts(baseURL string) []string {
 
 		// 1) Add the entire sub-part (e.g. "test-certificate")
 		allParts = append(allParts, sp)
+		allParts = append(allParts, removeTrailingNumbers(sp))
 
 		// 2) Then add each dash-split piece (e.g. "test", "certificate")
 		dashParts := dashSplitPart(sp)
@@ -140,6 +141,7 @@ func generateDomainParts(baseURL string) []string {
 				continue
 			}
 			allParts = append(allParts, dp)
+			allParts = append(allParts, removeTrailingNumbers(dp))
 		}
 
 		if len(dashParts) > 1 {
@@ -151,7 +153,7 @@ func generateDomainParts(baseURL string) []string {
 					continue
 				}
 				allParts = append(allParts, dp)
-
+				allParts = append(allParts, removeTrailingNumbers(dp))
 				// Add first character to our concatenated string if it exists
 				if len(dp) > 0 {
 					firstChars += string(dp[0])
@@ -161,6 +163,7 @@ func generateDomainParts(baseURL string) []string {
 			// Add the concatenated string if it's not empty
 			if firstChars != "" {
 				allParts = append(allParts, firstChars)
+
 			}
 		} else {
 			// Handle the case with no dashes (single part)
@@ -170,6 +173,7 @@ func generateDomainParts(baseURL string) []string {
 					continue
 				}
 				allParts = append(allParts, dp)
+				allParts = append(allParts, removeTrailingNumbers(dp))
 			}
 		}
 	}
@@ -187,16 +191,7 @@ func generateDomainParts(baseURL string) []string {
 				continue
 			}
 
-			shouldSkip := false
-			for _, irrelevantWord := range irrelevantPaths {
-				if strings.Contains(part, irrelevantWord) {
-					shouldSkip = true
-					break
-				}
-			}
-
-			// Skip if an irrelevant word was found
-			if shouldSkip {
+			if isIrrelevantPart(part) {
 				continue
 			}
 
@@ -224,6 +219,11 @@ func generateDomainParts(baseURL string) []string {
 		if numberRegex.MatchString(part) {
 			continue
 		}
+
+		if isIrrelevantPart(part) {
+			continue
+		}
+
 		if !encountered[part] {
 			encountered[part] = true
 			unique = append(unique, part)
@@ -231,4 +231,43 @@ func generateDomainParts(baseURL string) []string {
 	}
 
 	return unique
+}
+
+func isIrrelevantPart(part string) bool {
+	for _, irrelevantWord := range irrelevantPaths {
+		if strings.Contains(part, irrelevantWord) {
+			return true
+		}
+	}
+
+	if part == "" {
+		return true
+	}
+
+	if strings.HasSuffix(part, "-") {
+		return true
+	}
+	if strings.HasSuffix(part, "_") {
+		return true
+	}
+	if strings.HasPrefix(part, "-") {
+		return true
+	}
+	if strings.HasPrefix(part, "_") {
+		return true
+	}
+
+	return false
+}
+
+func removeTrailingNumbers(s string) string {
+	re := regexp.MustCompile(`(.*?)[-_]?\d+$`)
+
+	matches := re.FindStringSubmatch(s)
+
+	if len(matches) > 1 {
+		return matches[1]
+	}
+
+	return s
 }

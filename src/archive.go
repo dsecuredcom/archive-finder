@@ -124,15 +124,19 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 			if config.ModuleFirstChars {
 				relevantString1 := firstSubdomainPart(baseURL, 3)
 				if relevantString1 != "" {
-					for _, ext := range extensions {
-						addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString1, ext))
+					if !isIrrelevantPart(relevantString1) {
+						for _, ext := range extensions {
+							addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString1, ext))
+						}
 					}
 				}
 
 				relevantString2 := firstSubdomainPart(baseURL, 4)
 				if relevantString2 != "" {
-					for _, ext := range extensions {
-						addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString2, ext))
+					if !isIrrelevantPart(relevantString2) {
+						for _, ext := range extensions {
+							addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString2, ext))
+						}
 					}
 				}
 			}
