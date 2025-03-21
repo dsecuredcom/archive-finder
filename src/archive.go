@@ -76,7 +76,7 @@ func doHeadFast(archiveURL string, fastClient *FastHTTPClient) (int, string, err
 }
 
 func GenerateArchivePaths(host string, config *Config) <-chan string {
-	archiveChan := make(chan string, 250) // Buffered channel for some throughput
+	archiveChan := make(chan string, 350) // Buffered channel for some throughput
 
 	basePaths, extensions, commonBackupFolders := GetBasePathsAndExtensions(config)
 
@@ -96,6 +96,10 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 			return
 		}
 
+		if config.FetchHtmlFolders {
+			//folders := foldersFetched(host)
+		}
+
 		// Generate from basePaths + extensions
 		if !config.OnlyDynamicEntries {
 			for _, basePath := range basePaths {
@@ -103,61 +107,78 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 					// Using the baseURL directly which now includes the path
 					archive := fmt.Sprintf("%s%s.%s", baseURL, basePath, ext)
 					addPath(archive)
+
+					for _, backupFolder := range commonBackupFolders {
+						addPath(fmt.Sprintf("%s%s/%s.%s", baseURL, backupFolder, basePath, ext))
+					}
 				}
 			}
 		}
 
-		// Generate dynamic entries from subdomain parts
-		if !config.DisableDynamicEntries {
-			if config.ModuleDomainParts {
-				parts := generateDomainParts(baseURL)
-				for _, part := range parts {
+		if config.ModuleDomainParts {
+			parts := generateDomainParts(baseURL)
+			for _, part := range parts {
+				for _, ext := range extensions {
+					addPath(fmt.Sprintf("%s%s.%s", baseURL, part, ext))
+					for _, backupFolder := range commonBackupFolders {
+						addPath(fmt.Sprintf("%s%s/%s.%s", baseURL, backupFolder, part, ext))
+					}
+				}
+			}
+		}
+
+		if config.ModuleFirstChars {
+			relevantString1 := firstSubdomainPart(baseURL, 3)
+			if relevantString1 != "" {
+				if !isIrrelevantPart(relevantString1) {
 					for _, ext := range extensions {
-						addPath(fmt.Sprintf("%s%s.%s", baseURL, part, ext))
-						for _, backupfolder := range commonBackupFolders {
-							addPath(fmt.Sprintf("%s%s/%s.%s", baseURL, backupfolder, part, ext))
+						addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString1, ext))
+						for _, backupFolder := range commonBackupFolders {
+							addPath(fmt.Sprintf("%s%s/%s.%s", baseURL, backupFolder, relevantString1, ext))
 						}
 					}
 				}
 			}
 
-			if config.ModuleFirstChars {
-				relevantString1 := firstSubdomainPart(baseURL, 3)
-				if relevantString1 != "" {
-					if !isIrrelevantPart(relevantString1) {
-						for _, ext := range extensions {
-							addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString1, ext))
-						}
-					}
-				}
-
-				relevantString2 := firstSubdomainPart(baseURL, 4)
-				if relevantString2 != "" {
-					if !isIrrelevantPart(relevantString2) {
-						for _, ext := range extensions {
-							addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString2, ext))
+			relevantString2 := firstSubdomainPart(baseURL, 4)
+			if relevantString2 != "" {
+				if !isIrrelevantPart(relevantString2) {
+					for _, ext := range extensions {
+						addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString2, ext))
+						for _, backupFolder := range commonBackupFolders {
+							addPath(fmt.Sprintf("%s%s/%s.%s", baseURL, backupFolder, relevantString2, ext))
 						}
 					}
 				}
 			}
+		}
 
-			// Date-based entries
-			now := time.Now()
-			currentYear := now.Year()
-			todayStr := now.Format("2006-01-02")
+		// Date-based entries
+		now := time.Now()
+		currentYear := now.Year()
+		todayStr := now.Format("2006-01-02")
 
+		if config.ModuleYears {
 			for _, ext := range extensions {
-				if config.ModuleYears {
-					addPath(fmt.Sprintf("%sbackup%d.%s", baseURL, currentYear, ext))
-					addPath(fmt.Sprintf("%sbackup-%d.%s", baseURL, currentYear, ext))
-					addPath(fmt.Sprintf("%sbackup_%d.%s", baseURL, currentYear, ext))
-					addPath(fmt.Sprintf("%sbackups/backup%d.%s", baseURL, currentYear, ext))
+				addPath(fmt.Sprintf("%sbackup%d.%s", baseURL, currentYear, ext))
+				addPath(fmt.Sprintf("%sbackup-%d.%s", baseURL, currentYear, ext))
+				addPath(fmt.Sprintf("%sbackup_%d.%s", baseURL, currentYear, ext))
+				addPath(fmt.Sprintf("%sbackups/backup%d.%s", baseURL, currentYear, ext))
+
+				for _, backupFolder := range commonBackupFolders {
+					addPath(fmt.Sprintf("%s%s/backup%d.%s", baseURL, backupFolder, currentYear, ext))
+					addPath(fmt.Sprintf("%s%s/backup-%d.%s", baseURL, backupFolder, currentYear, ext))
+					addPath(fmt.Sprintf("%s%s/backup_%d.%s", baseURL, backupFolder, currentYear, ext))
+					addPath(fmt.Sprintf("%s%s/backups/backup%d.%s", baseURL, backupFolder, currentYear, ext))
 				}
 
-				if config.ModuleDate {
-					addPath(fmt.Sprintf("%sbackup-%s.%s", baseURL, todayStr, ext))
-					addPath(fmt.Sprintf("%sbackups/backup-%s.%s", baseURL, todayStr, ext))
-				}
+			}
+		}
+
+		if config.ModuleDate {
+			for _, ext := range extensions {
+				addPath(fmt.Sprintf("%sbackup-%s.%s", baseURL, todayStr, ext))
+				addPath(fmt.Sprintf("%sbackups/backup-%s.%s", baseURL, todayStr, ext))
 			}
 		}
 	}()
@@ -323,6 +344,10 @@ func normalizeHost(host string) string {
 	// Ensure the path ends with a slash if it's not empty
 	if path != "" && !strings.HasSuffix(path, "/") {
 		path = path + "/"
+	}
+
+	if u.Path == "" {
+		path = "/"
 	}
 
 	return fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, path)

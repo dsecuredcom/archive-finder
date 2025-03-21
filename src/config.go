@@ -29,6 +29,7 @@ type Config struct {
 	ModuleDomainParts     bool
 	ModuleFirstChars      bool
 	BackupFolders         []string
+	FetchHtmlFolders      bool
 }
 
 func ParseFlags() *Config {
@@ -41,7 +42,6 @@ func ParseFlags() *Config {
 	flag.DurationVar(&config.Timeout, "timeout", 60*time.Second, "Timeout for HTTP requests")
 	flag.IntVar(&config.Concurrency, "concurrency", 2500, "Maximum number of concurrent requests")
 	flag.IntVar(&config.ChunkSize, "chunksize", 500, "Chunksize for internal processing")
-	flag.BoolVar(&config.DisableDynamicEntries, "disable-dynamic-entries", false, "Disable generation of entries based on host")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose output")
 	flag.StringVar(&config.Intensity, "intensity", "medium", "Choose scanning intensity: small, medium, or big")
 	flag.StringVar(&wordList, "words", "", "Comma-separated list of words (overwrites intensity-based words)")
@@ -53,6 +53,8 @@ func ParseFlags() *Config {
 	flag.BoolVar(&config.ModuleFirstChars, "with-first-chars", false, "Generate based on first 3-4 chars of first subdomain part")
 	flag.BoolVar(&config.ModuleDate, "with-date", false, "Generate based on current date")
 	flag.BoolVar(&config.ModuleDomainParts, "with-host-parts", false, "Generate based on host parts")
+	flag.BoolVar(&config.FetchHtmlFolders, "with-fetch-html", false, "Extract folders from HTML content")
+
 	flag.Parse()
 
 	if config.HostsFile == "" {
@@ -71,16 +73,6 @@ func ParseFlags() *Config {
 
 	if backupFolders != "" {
 		config.BackupFolders = strings.Split(backupFolders, ",")
-	}
-
-	if config.DisableDynamicEntries && config.OnlyDynamicEntries {
-		fmt.Fprintln(os.Stderr, "You cant have both options: DisableDynamicEntries&&OnlyDynamicEntries.")
-		os.Exit(1)
-	}
-
-	if (config.OnlyDynamicEntries || !config.DisableDynamicEntries) && (config.ModuleDate == false && config.ModuleYears == false && config.ModuleDomainParts == false) {
-		fmt.Fprintln(os.Stderr, "Make sure to activate at least one module.")
-		os.Exit(1)
 	}
 
 	config.FoundHosts = make(map[string]bool)
