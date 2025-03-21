@@ -28,11 +28,14 @@ type Config struct {
 	ModuleDate            bool
 	ModuleDomainParts     bool
 	ModuleFirstChars      bool
+	BackupFolders         []string
 }
 
 func ParseFlags() *Config {
 	var wordList string
 	var extensionList string
+	var backupFolders string
+
 	config := &Config{}
 	flag.StringVar(&config.HostsFile, "hosts", "", "Path to hosts list file")
 	flag.DurationVar(&config.Timeout, "timeout", 60*time.Second, "Timeout for HTTP requests")
@@ -43,6 +46,7 @@ func ParseFlags() *Config {
 	flag.StringVar(&config.Intensity, "intensity", "medium", "Choose scanning intensity: small, medium, or big")
 	flag.StringVar(&wordList, "words", "", "Comma-separated list of words (overwrites intensity-based words)")
 	flag.StringVar(&extensionList, "extensions", "", "Comma-separated list of extensions (overwrites intensity-based extensions)")
+	flag.StringVar(&backupFolders, "backup-folders", "", "Comma-separated list of backup folders (overwrites intensity-based folders)")
 	flag.BoolVar(&config.UseFastHTTP, "fasthttp", false, "Use fasthttp instead of net/http")
 	flag.BoolVar(&config.OnlyDynamicEntries, "only-dynamic-entries", false, "Use only dynamically generated entries")
 	flag.BoolVar(&config.ModuleYears, "with-year", false, "Generate based on current year")
@@ -63,6 +67,10 @@ func ParseFlags() *Config {
 
 	if extensionList != "" {
 		config.UserExtensions = strings.Split(extensionList, ",")
+	}
+
+	if backupFolders != "" {
+		config.BackupFolders = strings.Split(backupFolders, ",")
 	}
 
 	if config.DisableDynamicEntries && config.OnlyDynamicEntries {

@@ -97,5 +97,9 @@ func GetBasePathsAndExtensions(config *Config) ([]string, []string, []string) {
 		extensions = config.UserExtensions
 	}
 
+	if len(config.BackupFolders) > 0 {
+		folders = config.BackupFolders
+	}
+
 	return basePaths, extensions, folders
 }
