@@ -3,13 +3,17 @@ package src
 var (
 	basePathsSmall = []string{
 		"backup",
-		"backup/backup",
-		"backups/backup",
+		"log",
+		"logs",
 	}
+
+	backupFoldersSmall = []string{
+		"backups",
+		"logs",
+	}
+
 	basePathsMedium = []string{
 		"backup",
-		"backup/backup",
-		"backups/backup",
 		"www",
 		"database",
 		"log",
@@ -19,11 +23,17 @@ var (
 		"admin",
 		"inc",
 		"private",
-		"private/backup",
 	}
+
+	backupFoldersMedium = []string{
+		"backups",
+		"backup",
+		"logs",
+	}
+
 	basePathsBig = []string{
-		"backup", "backup/backup", "backups/backup", "admin/backup", "backup1", "backup2", "backup3", "backup_full", "admin/backups/backup", "private/backup",
-		"admin/log", "admin/logs/log", "log", "logs", "logs/log", "logs/logs",
+		"backup", "backup1", "backup2", "backup3", "backup_full",
+		"log", "logs",
 		"www", "html", "site", "http", "website", "app", "apps", "main", "web", "server", "public",
 		"bin", "bins", "dlls",
 		"config", "conf", "configs", "cfg", "env", "configuration", "credentials", "creds",
@@ -36,7 +46,15 @@ var (
 		"dist", "assets", "js", "script", "scripts", "resources",
 		"prod", "dev", "test", "staging",
 	}
-
+	backupFoldersBig = []string{
+		"backups",
+		"backup",
+		"logs",
+		"_backups",
+		"_backup_",
+		"old",
+		"private",
+	}
 	extensionsSmall = []string{
 		"zip",
 		"tar.gz",
@@ -58,18 +76,18 @@ var (
 	}
 )
 
-func GetBasePathsAndExtensions(config *Config) ([]string, []string) {
-	var basePaths, extensions []string
+func GetBasePathsAndExtensions(config *Config) ([]string, []string, []string) {
+	var basePaths, extensions, folders []string
 
 	switch config.Intensity {
 	case "small":
-		basePaths, extensions = basePathsSmall, extensionsSmall
+		basePaths, extensions, folders = basePathsSmall, extensionsSmall, backupFoldersSmall
 	case "big":
-		basePaths, extensions = basePathsBig, extensionsBig
+		basePaths, extensions, folders = basePathsBig, extensionsBig, backupFoldersBig
 	case "medium":
 		fallthrough
 	default:
-		basePaths, extensions = basePathsMedium, extensionsMedium
+		basePaths, extensions, folders = basePathsMedium, extensionsMedium, backupFoldersMedium
 	}
 
 	if len(config.UserBaseWords) > 0 {
@@ -79,5 +97,5 @@ func GetBasePathsAndExtensions(config *Config) ([]string, []string) {
 		extensions = config.UserExtensions
 	}
 
-	return basePaths, extensions
+	return basePaths, extensions, folders
 }

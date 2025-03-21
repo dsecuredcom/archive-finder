@@ -35,19 +35,84 @@ func ProcessHostsFile(config *Config, stdClient *http.Client, fastClient *FastHT
 		lines[i], lines[j] = lines[j], lines[i]
 	})
 
-	basePaths, extensions := GetBasePathsAndExtensions(config)
+	basePaths, extensions, backupFolders := GetBasePathsAndExtensions(config)
 
 	numBasePaths := len(basePaths)
 	numExtensions := len(extensions)
-	// basePaths * extensions + 2 date-based * extensions
-	knownPerHost := numBasePaths*numExtensions + 2*numExtensions
-	estimated := knownPerHost * len(lines)
+	numBackupFolders := len(backupFolders)
+	numHosts := len(lines)
+
+	// Calculate estimated requests based on configuration
+	var estimated int
 
 	if config.OnlyDynamicEntries {
-		estimatedEntries := len(lines) * numExtensions * 6 // rough estimation
-		PrintWithTime("Dynamic list: at least ~%d requests (only dynamic entries)\n", estimatedEntries)
+		// For dynamic entries only:
+		dynamicEstimated := 0
+
+		// Calculate module-specific estimates
+		if config.ModuleDomainParts {
+			// Estimate average domain parts per host (conservatively)
+			avgDomainParts := 5 // Conservative estimate of domain parts per host
+			// Each part generates a direct request and requests in backup folders
+			domainPartRequests := avgDomainParts * numExtensions * (1 + numBackupFolders)
+			dynamicEstimated += domainPartRequests
+		}
+
+		if config.ModuleFirstChars {
+			// First 3 chars and first 4 chars = 2 patterns per host
+			firstCharsRequests := 2 * numExtensions
+			dynamicEstimated += firstCharsRequests
+		}
+
+		if config.ModuleYears {
+			// 4 year-based patterns per host (backup{year}, backup-{year}, backup_{year}, backups/backup{year})
+			yearBasedRequests := 4 * numExtensions
+			dynamicEstimated += yearBasedRequests
+		}
+
+		if config.ModuleDate {
+			// 2 date-based patterns per host (backup-{date}, backups/backup-{date})
+			dateBasedRequests := 2 * numExtensions
+			dynamicEstimated += dateBasedRequests
+		}
+
+		estimated = numHosts * dynamicEstimated
+		PrintWithTime("Dynamic list: approximately %d requests (only dynamic entries)\n", estimated)
+	} else if config.DisableDynamicEntries {
+		// Only static entries
+		staticEstimated := numBasePaths * numExtensions * numHosts
+		estimated = staticEstimated
+		PrintWithTime("Static list: %d requests (no dynamic entries)\n", estimated)
 	} else {
-		PrintWithTime("Static list: %d requests (no dynamic subdomain entries)\n", estimated)
+		// Both static and dynamic entries
+		staticEstimated := numBasePaths * numExtensions * numHosts
+
+		// Dynamic entries estimation
+		dynamicEstimated := 0
+
+		if config.ModuleDomainParts {
+			avgDomainParts := 5 // Conservative estimate
+			domainPartRequests := avgDomainParts * numExtensions * (1 + numBackupFolders)
+			dynamicEstimated += domainPartRequests
+		}
+
+		if config.ModuleFirstChars {
+			firstCharsRequests := 2 * numExtensions
+			dynamicEstimated += firstCharsRequests
+		}
+
+		if config.ModuleYears {
+			yearBasedRequests := 4 * numExtensions
+			dynamicEstimated += yearBasedRequests
+		}
+
+		if config.ModuleDate {
+			dateBasedRequests := 2 * numExtensions
+			dynamicEstimated += dateBasedRequests
+		}
+
+		estimated = staticEstimated + (numHosts * dynamicEstimated)
+		PrintWithTime("Complete list: approximately %d requests (static + dynamic entries)\n", estimated)
 	}
 
 	var chunk []string

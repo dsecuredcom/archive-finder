@@ -78,7 +78,7 @@ func doHeadFast(archiveURL string, fastClient *FastHTTPClient) (int, string, err
 func GenerateArchivePaths(host string, config *Config) <-chan string {
 	archiveChan := make(chan string, 250) // Buffered channel for some throughput
 
-	basePaths, extensions := GetBasePathsAndExtensions(config)
+	basePaths, extensions, commonBackupFolders := GetBasePathsAndExtensions(config)
 
 	go func() {
 		defer close(archiveChan)
@@ -114,20 +114,25 @@ func GenerateArchivePaths(host string, config *Config) <-chan string {
 				for _, part := range parts {
 					for _, ext := range extensions {
 						addPath(fmt.Sprintf("%s%s.%s", baseURL, part, ext))
-						addPath(fmt.Sprintf("%sbackups/%s.%s", baseURL, part, ext))
-						addPath(fmt.Sprintf("%s%s/backup.%s", baseURL, part, ext))
-						if len(part) < 4 {
-							addPath(fmt.Sprintf("%s%sbackup.%s", baseURL, part, ext))
+						for _, backupfolder := range commonBackupFolders {
+							addPath(fmt.Sprintf("%s%s/%s.%s", baseURL, backupfolder, part, ext))
 						}
 					}
 				}
 			}
 
 			if config.ModuleFirstChars {
-				relevantString := firstSubdomainPart(baseURL, 4)
-				if relevantString != "" {
+				relevantString1 := firstSubdomainPart(baseURL, 3)
+				if relevantString1 != "" {
 					for _, ext := range extensions {
-						addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString, ext))
+						addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString1, ext))
+					}
+				}
+
+				relevantString2 := firstSubdomainPart(baseURL, 4)
+				if relevantString2 != "" {
+					for _, ext := range extensions {
+						addPath(fmt.Sprintf("%s%s.%s", baseURL, relevantString2, ext))
 					}
 				}
 			}
