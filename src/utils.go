@@ -13,6 +13,10 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+var irrelevantPaths = []string{
+	"css", "icons", "images",
+}
+
 var userAgents = []string{
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36",
 	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36",
@@ -178,6 +182,24 @@ func generateDomainParts(baseURL string) []string {
 		pathParts := strings.Split(pathClean, "/")
 
 		for _, part := range pathParts {
+
+			if len(part) > 10 {
+				continue
+			}
+
+			shouldSkip := false
+			for _, irrelevantWord := range irrelevantPaths {
+				if strings.Contains(part, irrelevantWord) {
+					shouldSkip = true
+					break
+				}
+			}
+
+			// Skip if an irrelevant word was found
+			if shouldSkip {
+				continue
+			}
+
 			if part != "" && len(part) > 2 {
 				allParts = append(allParts, part)
 
