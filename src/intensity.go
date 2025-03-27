@@ -15,14 +15,11 @@ var (
 	basePathsMedium = []string{
 		"backup",
 		"www",
+		"app",
 		"database",
+		"db",
 		"log",
 		"logs",
-		"123",
-		"api",
-		"admin",
-		"inc",
-		"private",
 	}
 
 	backupFoldersMedium = []string{
@@ -34,7 +31,7 @@ var (
 	basePathsBig = []string{
 		"backup", "backup1", "backup2", "backup3", "backup_full",
 		"log", "logs",
-		"www", "html", "site", "http", "website", "app", "apps", "main", "web", "server", "public",
+		"www", "html", "site", "http", "httpd", "website", "app", "apps", "main", "web", "server", "public",
 		"bin", "bins", "dlls",
 		"config", "conf", "configs", "cfg", "env", "configuration", "credentials", "creds",
 		"src", "old", "inc", "data", "userdata",
